@@ -18,6 +18,7 @@ public class Alarm {
      * alarm.
      */
     public Alarm() {
+    alarmList = new TreeMap<Long, KThread>();
 	Machine.timer().setInterruptHandler(new Runnable() {
 		public void run() { timerInterrupt(); }
 	    });
@@ -33,12 +34,13 @@ public class Alarm {
 		boolean intStatus = Machine.interrupt().disable();
 		long currentTime = Machine.timer().getTime();
 		while(!alarmList.isEmpty()){
-			if (alarmList.firstKey() > currentTime){
+			if (alarmList.firstKey() <= currentTime){
 				alarmList.pollFirstEntry().getValue().ready(); 
 			} else {
 				break;
 			}
 		}
+
 		Machine.interrupt().restore(intStatus);
 		KThread.currentThread().yield();
     }
@@ -59,9 +61,9 @@ public class Alarm {
      */
     public void waitUntil(long x) {
 		boolean intStatus = Machine.interrupt().disable();
-		long wakeTime = Machine.timer().getTime() + x;
-		alarmList.put(wakeTime, KThread.currentThread());
-		KThread.sleep(); //why do we sleep it?
+		alarmList.put(Machine.timer().getTime() + x, KThread.currentThread());
+		KThread.sleep(); 
 		Machine.interrupt().restore(intStatus);
     }
+	
 }
