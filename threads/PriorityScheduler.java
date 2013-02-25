@@ -145,10 +145,12 @@ public class PriorityScheduler extends Scheduler {
 
 		public KThread nextThread() {
 		    Lib.assertTrue(Machine.interrupt().disabled());
-		    Lib.assertTrue(!waitQueue.isEmpty(), "Getting thread from next waitQueue");
-		    KThread nextThread = waitQueue.poll().thread;
-		    acquire(nextThread);
-		    return this.lockHolder.thread;
+		    if(!waitQueue.isEmpty()){
+			    KThread nextThread = waitQueue.poll().thread;
+			    acquire(nextThread);
+			    return this.lockHolder.thread;
+		    } 
+		    return null;
 		}
 
 		/**
@@ -185,11 +187,13 @@ public class PriorityScheduler extends Scheduler {
 				} else if (t1.getEffectivePriority() < t2.getEffectivePriority()) {
 					return -1;
 				} else {
-					Lib.assertTrue(t1.getWaitingQueue() != t2.getWaitingQueue(), "Comparing times for threads with different wait");
+					Lib.assertTrue(t1.getWaitingQueue() == t2.getWaitingQueue(), "ERROR THROWN: Comparing times for threads with different wait");
 					if (t1.getWaitingTime() > t2.getWaitingTime()) {
 						return 1;
-					} else {
+					} else if(t1.getWaitingTime() < t2.getWaitingTime()) {
 						return -1;
+					} else {
+						return 0;
 					}
 				}
 			}
