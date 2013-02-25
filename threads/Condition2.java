@@ -36,7 +36,7 @@ public class Condition2 {
 
     	conditionLock.release();
     	
-    	boolean intStatus  = Machine.interrupt().disable();
+    	boolean intStatus = Machine.interrupt().disable();
     	waitQueue.add(KThread.currentThread());
     	KThread.sleep();
     	Machine.interrupt().restore(intStatus);	
@@ -50,6 +50,12 @@ public class Condition2 {
      */
     public void wake() {
     	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+    	
+    	boolean intStatus = Machine.interrupt().disable();    	
+    	if(!waitQueue.isEmpty() && waitQueue.peek() != null) {
+    		waitQueue.poll().ready();
+    	}  
+    	Machine.interrupt().restore(intStatus);
     }
 
     /**
