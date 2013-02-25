@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.TreeMap;
+
 import nachos.machine.*;
 
 /**
@@ -7,6 +9,7 @@ import nachos.machine.*;
  * until a certain time.
  */
 public class Alarm {
+	private TreeMap<Long, KThread> alarmList;
     /**
      * Allocate a new Alarm. Set the machine's timer interrupt handler to this
      * alarm's callback.
@@ -27,7 +30,17 @@ public class Alarm {
      * that should be run.
      */
     public void timerInterrupt() {
-	KThread.currentThread().yield();
+		boolean intStatus = Machine.interrupt().disable();
+		long currentTime = Machine.timer().getTime();
+		while(!alarmList.isEmpty()){
+			if (alarmList.firstKey() > currentTime){
+				alarmList.pollFirstEntry().getValue().ready(); 
+			} else {
+				break;
+			}
+		}
+		Machine.interrupt().restore(intStatus);
+		KThread.currentThread().yield();
     }
 
     /**
@@ -45,9 +58,10 @@ public class Alarm {
      * @see	nachos.machine.Timer#getTime()
      */
     public void waitUntil(long x) {
-	// for now, cheat just to get something working (busy waiting is bad)
-	long wakeTime = Machine.timer().getTime() + x;
-	while (wakeTime > Machine.timer().getTime())
-	    KThread.yield();
+		boolean intStatus = Machine.interrupt().disable();
+		long wakeTime = Machine.timer().getTime() + x;
+		alarmList.put(wakeTime, KThread.currentThread());
+		KThread.sleep(); //why do we sleep it?
+		Machine.interrupt().restore(intStatus);
     }
 }
