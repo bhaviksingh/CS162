@@ -246,9 +246,11 @@ public class PriorityScheduler extends Scheduler {
 		private void updateEffectivePriority() {
 			int tempPriority = this.effectivePriority;
 			for (PriorityQueue resource: acquired){
-				int resourceMax = resource.waitQueue.peek().getEffectivePriority();
-				if (tempPriority < resourceMax) {
-					tempPriority = resourceMax;
+				if (resource.waitQueue.peek() != null){
+					int resourceMax = resource.waitQueue.peek().getEffectivePriority();
+					if (tempPriority < resourceMax) {
+						tempPriority = resourceMax;
+					}
 				}
 			}
 			if (tempPriority != this.effectivePriority){
