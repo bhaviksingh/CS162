@@ -53,7 +53,22 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
-    	return 0;
+    	lock.acquire();
+    	
+    	while(currentListener != null) {
+    		listenCondition.sleep();
+    	}
+    	
+    	while(currentSpeaker == null) {
+    		currentListener.sleep();
+    	}
+    	
+    	currentSpeaker.ready();
+    	currentListener.ready();
+    	
+    	lock.release();
+    	
+    	return msg;
     }
     
     Lock lock = new Lock();
