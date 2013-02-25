@@ -69,6 +69,7 @@ public class Condition2 {
     	while(!waitQueue.isEmpty()) {
     		wake();
     	}
+    	Machine.interrupt().restore(intStatus);
     }
 
     private Lock conditionLock;
