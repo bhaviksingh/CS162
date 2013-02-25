@@ -34,7 +34,7 @@ public class Alarm {
 		boolean intStatus = Machine.interrupt().disable();
 		long currentTime = Machine.timer().getTime();
 		while(!alarmList.isEmpty()){
-			if (alarmList.firstKey() >= currentTime){
+			if (alarmList.firstKey() <= currentTime){
 				alarmList.pollFirstEntry().getValue().ready(); 
 			} else {
 				break;
@@ -62,7 +62,8 @@ public class Alarm {
     public void waitUntil(long x) {
 		boolean intStatus = Machine.interrupt().disable();
 		alarmList.put(Machine.timer().getTime() + x, KThread.currentThread());
-		KThread.sleep(); //why do we sleep it?
+		KThread.sleep(); 
 		Machine.interrupt().restore(intStatus);
     }
+	
 }
