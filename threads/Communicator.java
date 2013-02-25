@@ -10,10 +10,25 @@ import nachos.machine.*;
  * threads can be paired off at this point.
  */
 public class Communicator {
+	
+	private Lock lock;
+    private Condition2 speakCondition;
+    private Condition2 listenCondition;
+    private KThread currentSpeaker;
+    private KThread currentListener;
+    private boolean receivedMsg;
+    private int msg;
+    
     /**
      * Allocate a new communicator.
      */
     public Communicator() {
+    	lock = new Lock();
+    	speakCondition = new Condition2(lock);
+    	listenCondition = new Condition2(lock);
+    	currentSpeaker = new KThread();
+    	currentListener = new KThread();
+    	receivedMsg = false;
     }
 
     /**
@@ -40,8 +55,11 @@ public class Communicator {
     		currentSpeaker.sleep();
     	}
     	
-    	currentSpeaker.ready();
-    	currentListener.ready();
+    	receivedMsg = false;
+    	speakCondition.wake();
+    	listenCondition.wake();
+    	//currentSpeaker.ready();
+    	//currentListener.ready();
     	
     	lock.release();
     }
@@ -62,19 +80,15 @@ public class Communicator {
     	while(currentSpeaker == null) {
     		currentListener.sleep();
     	}
-    	
-    	currentSpeaker.ready();
-    	currentListener.ready();
+    	    	
+    	speakCondition.wake();
+    	listenCondition.wake();
+    	receivedMsg = true;
+    	//currentSpeaker.ready();
+    	//currentListener.ready();
     	
     	lock.release();
     	
     	return msg;
-    }
-    
-    Lock lock = new Lock();
-    Condition2 speakCondition = new Condition2(lock);
-    Condition2 listenCondition = new Condition2(lock);
-    KThread currentSpeaker = new KThread();
-    KThread currentListener = new KThread();
-    int msg;
+    }       
 }
