@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.PriorityQueue; // not sure if we use this one or the one we implement in 5?
 
 /**
  * An implementation of condition variables that disables interrupt()s for
@@ -21,7 +22,7 @@ public class Condition2 {
      *				<tt>wake()</tt>, or <tt>wakeAll()</tt>.
      */
     public Condition2(Lock conditionLock) {
-	this.conditionLock = conditionLock;
+    	this.conditionLock = conditionLock;
     }
 
     /**
@@ -31,11 +32,16 @@ public class Condition2 {
      * automatically reacquire the lock before <tt>sleep()</tt> returns.
      */
     public void sleep() {
-	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+    	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
 
-	conditionLock.release();
+    	conditionLock.release();
+    	
+    	boolean intStatus  = Machine.interrupt().disable();
+    	waitQueue.add(KThread.currentThread());
+    	KThread.sleep();
+    	Machine.interrupt().restore(intStatus);	
 
-	conditionLock.acquire();
+    	conditionLock.acquire();
     }
 
     /**
@@ -43,7 +49,7 @@ public class Condition2 {
      * current thread must hold the associated lock.
      */
     public void wake() {
-	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+    	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
     }
 
     /**
@@ -55,4 +61,5 @@ public class Condition2 {
     }
 
     private Lock conditionLock;
+    private PriorityQueue<KThread> waitQueue = new PriorityQueue<KThread>();
 }
