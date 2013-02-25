@@ -198,12 +198,15 @@ public class KThread {
 
 		currentThread.status = statusFinished;
 
-		//Place all threads joined to this thread on the readyQueue.
+		//Place all threads joined to this thread on the readyQueue (wake them up)
 		currentThread.wakeJoins();
 		
 		sleep();	
 	}
 
+	/*
+	 * Wakes all threads on currentThread's joinQueue
+	 */
 	private void wakeJoins() {
 		KThread wakeup = joinQueue.nextThread();
 		
