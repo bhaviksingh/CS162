@@ -212,7 +212,7 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public ThreadState(KThread thread) {
 		    this.thread = thread;
-		    
+		    this.acquired = new HashSet<PriorityQueue>();
 		    setPriority(priorityDefault);
 		}
 

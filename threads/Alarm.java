@@ -18,6 +18,7 @@ public class Alarm {
      * alarm.
      */
     public Alarm() {
+    alarmList = new TreeMap<Long, KThread>();
 	Machine.timer().setInterruptHandler(new Runnable() {
 		public void run() { timerInterrupt(); }
 	    });
@@ -39,6 +40,7 @@ public class Alarm {
 				break;
 			}
 		}
+
 		Machine.interrupt().restore(intStatus);
 		KThread.currentThread().yield();
     }

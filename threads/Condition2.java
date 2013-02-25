@@ -1,7 +1,8 @@
 package nachos.threads;
 
 import nachos.machine.*;
-import java.util.PriorityQueue; // not sure if we use this one or the one we implement in 5?
+
+import java.util.LinkedList;
 
 /**
  * An implementation of condition variables that disables interrupt()s for
@@ -73,5 +74,5 @@ public class Condition2 {
     }
 
     private Lock conditionLock;
-    private PriorityQueue<KThread> waitQueue = new PriorityQueue<KThread>();
+    private LinkedList<KThread> waitQueue = new LinkedList<KThread>();
 }
