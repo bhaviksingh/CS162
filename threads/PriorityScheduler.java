@@ -262,6 +262,7 @@ public class PriorityScheduler extends Scheduler {
 			if (this.effectivePriority != tempPriority){
 
 				this.effectivePriority = tempPriority;
+				System.out.println("Someones effective priority was changed by update");
 				if(waitingQueue != null && waitingQueue.lockHolder != null && this.waitingQueue.transferPriority)
 				{
 					this.waitingQueue.lockHolder.updateEffectivePriority();
@@ -346,9 +347,7 @@ public class PriorityScheduler extends Scheduler {
 		    waitQueue.orderedThreads.remove(this); //this was different from the design doc!
 		    waitQueue.lockHolder = this; //this was also different!
 		    this.acquired.add(waitQueue);
-		    if (waitQueue.transferPriority){
-		    	this.updateEffectivePriority();
-		    }
+		    this.updateEffectivePriority();
 		}
 		/**
 		 * Helper function for acquired.
@@ -422,10 +421,26 @@ public class PriorityScheduler extends Scheduler {
 		
 		tq1.nextThread();
 
-		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);	
+	
+		ThreadQueue d_1 = ThreadedKernel.scheduler.newThreadQueue(false);
+		
+		KThread n_1 = new KThread();
+		KThread n_2 = new KThread();
+		KThread n_3 = new KThread();
+		
+		System.out.println("STARTING");
+		ThreadedKernel.scheduler.setPriority(n_1, 4);
+		ThreadedKernel.scheduler.setPriority(n_2, 1);
+		ThreadedKernel.scheduler.setPriority(n_3, 2);
+		
+		d_1.waitForAccess(n_1);
+		d_1.waitForAccess(n_3);
+		d_1.acquire(n_2);
+		System.out.println("MOTHERFUCKER " + ThreadedKernel.scheduler.getEffectivePriority(n_2));
 		
 		Machine.interrupt().restore(status);
+
 		
-	
 	}
 }
