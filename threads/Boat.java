@@ -22,11 +22,11 @@ public class Boat {
 	public static void selfTest() {
 		BoatGrader b = new BoatGrader();
 
-		//System.out.println("\n ***Testing Boats with only 2 children***");
-		//begin(0, 2, b);
+		System.out.println("\n ***Testing Boats with only 2 children***");
+		begin(0, 2, b);
 
-		System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
-		begin(1, 2, b);
+		//System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
+		//begin(1, 2, b);
 
 		// System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
 		// begin(3, 3, b);
@@ -38,13 +38,13 @@ public class Boat {
 		bg = b;
 
 		// Instantiate global variables here
-		int boatLocation = 0;
-		int numChildrenOnOahu = 0;
-		int numChildrenOnMolokai = 0;
-		int numAdultsOnOahu = 0;
-		int numAdultsOnMolokai = 0;
-		int numPassangers = 0;
-		boolean hasChildPilot = false;
+		boatLocation = 0;
+		numChildrenOnOahu = 0;
+		numChildrenOnMolokai = 0;
+		numAdultsOnOahu = 0;
+		numAdultsOnMolokai = 0;
+		numPassangers = 0;
+		hasChildPilot = false;
 		//boolean gameOver = false;
 		pilotLock = new Lock();
 		readyAtOahu = new Condition(pilotLock);
@@ -82,7 +82,7 @@ public class Boat {
 			/*if (adults == numAdultsOnMolokai && children == numChildrenOnMolokai) {
 				return;
 			}*/
-			if (numChildrenOnMolokai + numAdultsOnMolokai == adults + children){
+			if ((numChildrenOnMolokai + numAdultsOnMolokai) == (adults + children)){
 				System.out.println("Game over. FUCK YEAH!");
 				break;
 			}
@@ -127,15 +127,12 @@ public class Boat {
 			}
 			if (boatLocation !=  currentLocation){ //if boat is not at the current location
 				readyAtOahu.sleep();
-				continue;
 			}
 			if (numChildrenOnOahu >= 2) { //if Oahu has >= 2 children, don’t send adults (you will need to send children)
 				readyAtOahu.sleep();
-				continue;
 			}
 			if (hasChildPilot){ //adult cannot be on a boat with a child
 				readyAtOahu.sleep();
-				continue;
 			}
 			else { //row over to Molokai and update all values
 				bg.AdultRowToMolokai();
@@ -148,10 +145,9 @@ public class Boat {
 					numAdultsOnMolokai--;
 					boatLocation = 0;
 					readyAtOahu.sleep();
-					continue;
 				}
 				else {
-					readyAtMolokai.wakeAll();
+					readyAtMolokai.wake();
 					pilotLock.release();
 					break;
 				}
@@ -201,14 +197,12 @@ public class Boat {
 							gameEnd.acquire();
 							end.wake();
 							gameEnd.release();
-							readyToTerminate = false;
 						}
 						
 						else {
-							readyAtMolokai.sleep();
-							continue;
+							readyAtMolokai.wake();
 						}
-						readyAtMolokai.wakeAll();
+						readyAtMolokai.sleep();
 					}
 					else if (!hasChildPilot) {
 						hasChildPilot = true; //but a child on the boat to be pilot
