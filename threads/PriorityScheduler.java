@@ -249,12 +249,12 @@ public class PriorityScheduler extends Scheduler {
 		
 		private void updateEffectivePriority() {
 			
-			System.out.println("Updating priority for "+ this);
-			int tempPriority = 0;
+			//System.out.println("Updating priority for "+ this);
+			int tempPriority = -100;
 			
 			for (PriorityQueue resource: acquired){
 				if (resource.transferPriority && resource.orderedThreads.peek() != null){
-					System.out.println("orderedthreads is " + resource.orderedThreads);
+					//System.out.println("orderedthreads is " + resource.orderedThreads);
 					int resourceMax = resource.orderedThreads.peek().getEffectivePriority();
 					if (tempPriority < resourceMax) {
 						tempPriority = resourceMax;
@@ -262,13 +262,13 @@ public class PriorityScheduler extends Scheduler {
 				}
 			}
 			
-			if (this.effectivePriority != tempPriority){
+			if (this.effectivePriority != tempPriority && tempPriority != -100){
 				if (tempPriority < this.priority) {
 					this.effectivePriority = this.priority;
 				} else {
 					this.effectivePriority = tempPriority;
 				}
-				System.out.println("Priority for "+ this + " changed to " + this.effectivePriority);
+				//System.out.println("Priority for "+ this + " changed to " + this.effectivePriority);
 				if(waitingQueue != null && waitingQueue.lockHolder != null && waitingQueue.transferPriority)
 				{
 					this.waitingQueue.lockHolder.updateEffectivePriority();
