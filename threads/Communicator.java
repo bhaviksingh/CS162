@@ -16,7 +16,6 @@ public class Communicator {
     private Condition2 listenCondition;      
     private KThread currentSpeaker;
     private KThread currentListener;
-    private boolean receivedMsg;
     private int msg;
     
     /**
@@ -28,7 +27,6 @@ public class Communicator {
     	listenCondition = new Condition2(lock);    	   
     	currentSpeaker = null;
     	currentListener = null;
-    	receivedMsg = false;
     }
 
     /**
@@ -41,24 +39,29 @@ public class Communicator {
      *
      * @param	word	the integer to transfer.
      */
-    public void speak(int word) {    	
+    public void speak(int word) {    
+    	//System.out.println("--- called speak() with the msg "+word);
     	lock.acquire();
     	
     	while(currentSpeaker != null) {
     		speakCondition.sleep();
     	}    	    
     	
+    	//System.out.println("--- reached checkpoint 1 in speak()");
+    	
     	msg = word;
     	currentSpeaker = KThread.currentThread();
     	
-    	while(currentListener == null || !receivedMsg) {    		
+    	while(currentListener == null) {    		
     		listenCondition.wake();
     		speakCondition.sleep();
     	}    	    
     	
-    	receivedMsg = false;
     	speakCondition.wake();
-    	listenCondition.wake();    	
+    	listenCondition.wake();   
+    	
+    	//System.out.println("--- reached checkpoint 2 in speak()");
+    	currentListener = null;
     	
     	lock.release();
     }
@@ -69,12 +72,15 @@ public class Communicator {
      *
      * @return	the integer transferred.
      */    
-    public int listen() {
+    public int listen() {    	
+    	//System.out.println("--- called listen()");
     	lock.acquire();
     	
     	while(currentListener != null) {
     		listenCondition.sleep();
     	}
+    	
+    	//System.out.println("--- reached checkpoint 1 in listen()");
     	
     	currentListener = KThread.currentThread();
     	
@@ -82,40 +88,60 @@ public class Communicator {
     		speakCondition.wake();
     		listenCondition.sleep();
     	}
-    	      	
-    	receivedMsg = true; 
+    	      	    	
     	speakCondition.wake();
-    	listenCondition.wake();    	       	
+    	listenCondition.wake();       	
     	
-    	lock.release();    	    
+    	lock.release();  
+    	
+    	currentSpeaker = null;
+    	//System.out.println("--- returning from listen() with the msg "+msg);
     	
     	return msg;
     }       
     
     public static void selfTest() {
-    	final Communicator commu = new Communicator();
-
-		KThread thread2 = new KThread(new Runnable() {
-		    public void run() {
-		         System.out.println("--- Thread 2 has begun listening.");
-		         commu.listen();
-		         System.out.println("--- Thread 2 finished listening.");		         
-		    }
-		});
-
-		KThread thread1 = new KThread(new Runnable() {
-		    public void run() {
-		    	int toSend = 8;
-		    	System.out.println("--- Thread 1 has begun speaking.");
-		    	System.out.println("--- Attempting to send the message "+toSend+".");
-		    	commu.speak(toSend);
+    	final Communicator com = new Communicator();
+    	
+    	KThread thread1 = new KThread(new Runnable() {
+		    public void run() {		    	
+		    	System.out.println("--- Thread 1 has begun speaking (msg = 1).");
+		    	com.speak(1);		    	
 		        System.out.println("--- Thread 1 finished speaking.");
 		    }
 		});
 
+		KThread thread2 = new KThread(new Runnable() {
+		    public void run() {
+		         System.out.println("--- Thread 2 has begun listening.");
+		         com.listen();
+		         System.out.println("--- Thread 2 finished listening.");		         
+		    }
+		});
+		
+		KThread thread3 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("--- Thread 3 has begun speaking (msg = 3).");
+				com.speak(3);
+				System.out.println("--- Thread 3 finished speaking.");
+			}
+		});
+		
+		KThread thread4 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("--- Thread 4 has begun listening.");
+				com.listen();
+				System.out.println("--- Thread 4 finished listening.");
+			}
+		});
+
 		thread1.fork();
 		thread2.fork();
+		thread3.fork();
+		thread4.fork();
 		thread1.join();
-		thread2.join();    
+		thread2.join();   
+		thread3.join();
+		thread4.join();
     }
 }
