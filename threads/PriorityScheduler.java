@@ -147,8 +147,7 @@ public class PriorityScheduler extends Scheduler {
 		    Lib.assertTrue(Machine.interrupt().disabled());
 		    if(!orderedThreads.isEmpty()){
 			    KThread nextThread = orderedThreads.poll().thread;
-			    acquire(nextThread);
-			    return this.lockHolder.thread;
+			    return nextThread;
 		    } 
 		    return null;
 		}
@@ -426,7 +425,7 @@ public class PriorityScheduler extends Scheduler {
 		
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
 		System.out.println("Calling nextthread");
-		tq1.nextThread();
+		tq1.acquire(tq1.nextThread());
 
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);	
 	
