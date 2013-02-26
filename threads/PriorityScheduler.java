@@ -187,10 +187,10 @@ public class PriorityScheduler extends Scheduler {
 				} else if (t1.getEffectivePriority() < t2.getEffectivePriority()) {
 					return 1;
 				} else {
-					if (t1.getWaitingTime() > t2.getWaitingTime()) {
-						return 1;
-					} else if(t1.getWaitingTime() < t2.getWaitingTime()) {
+					if (t1.getWaitingTime() < t2.getWaitingTime()) {
 						return -1;
+					} else if(t1.getWaitingTime() > t2.getWaitingTime()) {
+						return 1;
 					} else {
 						return 0;
 					}
@@ -249,26 +249,31 @@ public class PriorityScheduler extends Scheduler {
 		
 		private void updateEffectivePriority() {
 			
-			int tempPriority = this.priority;
+			System.out.println("Updating priority for "+ this);
+			int tempPriority = 0;
+			
 			for (PriorityQueue resource: acquired){
 				if (resource.transferPriority && resource.orderedThreads.peek() != null){
-					System.out.println("TRANSFER PRIORITY WAS FALSE BITCH");
+					System.out.println("orderedthreads is " + resource.orderedThreads);
 					int resourceMax = resource.orderedThreads.peek().getEffectivePriority();
 					if (tempPriority < resourceMax) {
 						tempPriority = resourceMax;
 					}
 				}
 			}
-
+			
 			if (this.effectivePriority != tempPriority){
-
-				this.effectivePriority = tempPriority;
-				System.out.println("Someones effective priority was changed by update");
-				if(waitingQueue != null && waitingQueue.lockHolder != null && this.waitingQueue.transferPriority)
+				if (tempPriority < this.priority) {
+					this.effectivePriority = this.priority;
+				} else {
+					this.effectivePriority = tempPriority;
+				}
+				System.out.println("Priority for "+ this + " changed to " + this.effectivePriority);
+				if(waitingQueue != null && waitingQueue.lockHolder != null && waitingQueue.transferPriority)
 				{
 					this.waitingQueue.lockHolder.updateEffectivePriority();
 				}
-			}
+			} 
 		}
 		
 		private int maxPriority(PriorityQueue resource) {
@@ -414,12 +419,13 @@ public class PriorityScheduler extends Scheduler {
 		
 		KThread kt_5 = new KThread();
 		
+		System.out.println("ADDING 5");
 		ThreadedKernel.scheduler.setPriority(kt_5, 7);
-		
+		System.out.println("WFA 5");
 		tq1.waitForAccess(kt_5);
 		
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
-		
+		System.out.println("Calling nextthread");
 		tq1.nextThread();
 
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);	
