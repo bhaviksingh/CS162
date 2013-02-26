@@ -145,8 +145,8 @@ public class PriorityScheduler extends Scheduler {
 
 		public KThread nextThread() {
 		    Lib.assertTrue(Machine.interrupt().disabled());
-		    if(!waitQueue.isEmpty()){
-			    KThread nextThread = waitQueue.poll().thread;
+		    if(!orderedThreads.isEmpty()){
+			    KThread nextThread = orderedThreads.poll().thread;
 			    acquire(nextThread);
 			    return this.lockHolder.thread;
 		    } 
@@ -161,7 +161,7 @@ public class PriorityScheduler extends Scheduler {
 		 *		return.
 		 */
 		protected ThreadState pickNextThread() {
-			return waitQueue.peek();
+			return orderedThreads.peek();
 		}
 		
 		public void print() {
@@ -174,7 +174,7 @@ public class PriorityScheduler extends Scheduler {
 		 * threads to the owning thread.
 		 */
 		public boolean transferPriority;
-		private java.util.PriorityQueue<ThreadState> waitQueue = new java.util.PriorityQueue<ThreadState>(10, new ThreadComparator<ThreadState>());
+		private java.util.PriorityQueue<ThreadState> orderedThreads = new java.util.PriorityQueue<ThreadState>(10, new ThreadComparator<ThreadState>());
 		private ThreadState lockHolder = null;
 		
 		private class ThreadComparator<T> implements Comparator<T> {
@@ -183,11 +183,10 @@ public class PriorityScheduler extends Scheduler {
 				ThreadState t1 = (ThreadState) o1;
 				ThreadState t2 = (ThreadState) o2;
 				if (t1.getEffectivePriority() > t2.getEffectivePriority()) {
-					return 1;
-				} else if (t1.getEffectivePriority() < t2.getEffectivePriority()) {
 					return -1;
+				} else if (t1.getEffectivePriority() < t2.getEffectivePriority()) {
+					return 1;
 				} else {
-					Lib.assertTrue(t1.getWaitingQueue() == t2.getWaitingQueue(), "ERROR THROWN: Comparing times for threads with different wait");
 					if (t1.getWaitingTime() > t2.getWaitingTime()) {
 						return 1;
 					} else if(t1.getWaitingTime() < t2.getWaitingTime()) {
@@ -244,25 +243,46 @@ public class PriorityScheduler extends Scheduler {
 		 * @return	the effective priority of the associated thread.
 		 */
 		public int getEffectivePriority() {
+
 		    return effectivePriority;
 		}
 		
 		private void updateEffectivePriority() {
-			int tempPriority = this.effectivePriority;
+			
+			int tempPriority = this.priority;
+			System.out.println("I am " + this);
 			for (PriorityQueue resource: acquired){
-				if (resource.waitQueue.peek() != null){
-					int resourceMax = resource.waitQueue.peek().getEffectivePriority();
+				if (resource.orderedThreads.peek() != null){
+					System.out.println("ordered threads is" + resource.orderedThreads);
+					int resourceMax = resource.orderedThreads.peek().getEffectivePriority();
 					if (tempPriority < resourceMax) {
 						tempPriority = resourceMax;
 					}
 				}
 			}
-			if (tempPriority != this.effectivePriority){
+
+			if (this.effectivePriority != tempPriority){
+				System.out.println("Changing priority from " + effectivePriority + " to " + tempPriority);
+
 				this.effectivePriority = tempPriority;
-				this.waitingQueue.lockHolder.updateEffectivePriority();
+				if(waitingQueue != null && waitingQueue.lockHolder != null)
+				{
+					this.waitingQueue.lockHolder.updateEffectivePriority();
+				}
 			}
 		}
 		
+		private int maxPriority(PriorityQueue resource) {
+			int max = -100; //this is terrible
+			for(ThreadState state: resource.orderedThreads){
+				if (state.getPriority() > max){
+					max = state.getPriority();
+				}
+			}
+			return max;
+			
+		}
+
 		/**
 		 * Set the priority of the associated thread to the specified value.
 		 *
@@ -274,8 +294,13 @@ public class PriorityScheduler extends Scheduler {
 		    
 		    this.priority = priority;
 		    
+		    if (this.priority > this.effectivePriority) {
+		    	this.effectivePriority = this.priority;
+		    }
+		    
 		    if(waitingQueue != null && waitingQueue.lockHolder != null) {
 		    	if (waitingQueue.transferPriority){
+		    		System.out.println("set priort is calling update");
 		    		waitingQueue.lockHolder.updateEffectivePriority();
 		    	}
 		    }
@@ -297,7 +322,9 @@ public class PriorityScheduler extends Scheduler {
 		public void waitForAccess(PriorityQueue waitQueue) {
 		    this.waitingQueue = waitQueue;
 		    this.waitingTime = Machine.timer().getTime();
-		    waitingQueue.waitQueue.add(this);
+		  
+		    waitQueue.orderedThreads.add(this);
+		    
 		    if (waitingQueue.lockHolder != null && waitingQueue.transferPriority){
 		    	waitingQueue.lockHolder.updateEffectivePriority();
 		    }
@@ -319,7 +346,10 @@ public class PriorityScheduler extends Scheduler {
 		    if(waitQueue.lockHolder != null) {
 		    	waitQueue.lockHolder.relinquish(waitQueue);
 		    }
-		    waitQueue.waitQueue.remove(this); //this was different from the design doc!
+		    if (waitingQueue == waitQueue){
+		    	waitingQueue = null;
+		    }
+		    waitQueue.orderedThreads.remove(this); //this was different from the design doc!
 		    waitQueue.lockHolder = this; //this was also different!
 		    this.acquired.add(waitQueue);
 		    if (waitQueue.transferPriority){
@@ -330,12 +360,21 @@ public class PriorityScheduler extends Scheduler {
 		 * Helper function for acquired.
 		 * @param waitQueue will leave the function with no lockholder
 		 */
-		private void relinquish(PriorityQueue waitQueue){
+		private void relinquish(PriorityQueue releasing){
+			System.out.println("thread with priority" + this.effectivePriority + " is relinquishing to " + this.priority);
 			this.effectivePriority = this.priority; //not sure about this tbh
-			this.acquired.remove(waitQueue);
-			waitQueue.lockHolder = null; //maybe this doesnt need to be there
+			this.acquired.remove(releasing);
+			releasing.lockHolder = null; //maybe this doesnt need to be there
+			if (this.waitingQueue!= null && this.waitingQueue.transferPriority && this.waitingQueue.lockHolder != null){
+				this.waitingQueue.lockHolder.updateEffectivePriority();
+			}
 		}
 
+		public String toString(){
+			String s = "{" + this.thread + " e:" + this.effectivePriority + " p:" + this.priority + "}";
+			return s;
+		}
+		
 		/** The thread with which this object is associated. */	   
 		protected KThread thread;
 		/** The priority of the associated thread. */
@@ -346,4 +385,46 @@ public class PriorityScheduler extends Scheduler {
 		private long waitingTime;
 		private HashSet<PriorityQueue> acquired;
     }
+    
+
+	public static void selfTest() {
+		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
+		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
+		
+		boolean status = Machine.interrupt().disable();
+		
+		kt_1.setName("kt_1");
+		kt_2.setName("kt_2");
+		kt_3.setName("kt_3");
+		kt_4.setName("kt_4");
+		
+		tq1.waitForAccess(kt_1);
+		tq2.waitForAccess(kt_2);
+		tq3.waitForAccess(kt_3);
+		
+		tq1.acquire(kt_2);
+		tq2.acquire(kt_3);
+		tq3.acquire(kt_4);
+		
+		ThreadedKernel.scheduler.setPriority(kt_1, 6);
+
+		System.out.println("FIRST TEST PROP UP: " + ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==6);
+		
+		KThread kt_5 = new KThread();
+		
+		ThreadedKernel.scheduler.setPriority(kt_5, 7);
+		
+		tq1.waitForAccess(kt_5);
+		
+		System.out.println("SECOND TEST ADDED 5,7: " + ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
+		
+		tq1.nextThread();
+
+		System.out.println("SECOND TEST ADDED 5,7: " + ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
+		
+		Machine.interrupt().restore(status);
+	}
 }
