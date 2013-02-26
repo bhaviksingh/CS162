@@ -252,6 +252,7 @@ public class PriorityScheduler extends Scheduler {
 			int tempPriority = this.priority;
 			for (PriorityQueue resource: acquired){
 				if (resource.transferPriority && resource.orderedThreads.peek() != null){
+					System.out.println("TRANSFER PRIORITY WAS FALSE BITCH");
 					int resourceMax = resource.orderedThreads.peek().getEffectivePriority();
 					if (tempPriority < resourceMax) {
 						tempPriority = resourceMax;
@@ -423,21 +424,31 @@ public class PriorityScheduler extends Scheduler {
 
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);	
 	
-		ThreadQueue d_1 = ThreadedKernel.scheduler.newThreadQueue(false);
+		ThreadQueue d_1 = ThreadedKernel.scheduler.newThreadQueue(true);
+		ThreadQueue d_2 = ThreadedKernel.scheduler.newThreadQueue(false);
 		
 		KThread n_1 = new KThread();
 		KThread n_2 = new KThread();
 		KThread n_3 = new KThread();
+		KThread n_4 = new KThread();
 		
 		System.out.println("STARTING");
 		ThreadedKernel.scheduler.setPriority(n_1, 4);
 		ThreadedKernel.scheduler.setPriority(n_2, 1);
 		ThreadedKernel.scheduler.setPriority(n_3, 2);
+		ThreadedKernel.scheduler.setPriority(n_4, 1);
 		
 		d_1.waitForAccess(n_1);
 		d_1.waitForAccess(n_3);
+		d_2.waitForAccess(n_2);
+		d_2.acquire(n_4);
 		d_1.acquire(n_2);
-		System.out.println("MOTHERFUCKER " + ThreadedKernel.scheduler.getEffectivePriority(n_2));
+		
+		System.out.println("MOTHERFUCKER 1: " + ThreadedKernel.scheduler.getEffectivePriority(n_2));
+		System.out.println("MOTHERFUCKER 2: " + ThreadedKernel.scheduler.getEffectivePriority(n_4));
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_2) == 4);
+
 		
 		Machine.interrupt().restore(status);
 
