@@ -11,9 +11,9 @@ import nachos.machine.*;
  */
 public class Communicator {
 	
-	private Lock lock;
+	private Lock lock;	
     private Condition2 speakCondition;
-    private Condition2 listenCondition;
+    private Condition2 listenCondition;      
     private KThread currentSpeaker;
     private KThread currentListener;
     private boolean receivedMsg;
@@ -23,11 +23,11 @@ public class Communicator {
      * Allocate a new communicator.
      */
     public Communicator() {
-    	lock = new Lock();
+    	lock = new Lock();    	
     	speakCondition = new Condition2(lock);
-    	listenCondition = new Condition2(lock);
-    	currentSpeaker = new KThread();
-    	currentListener = new KThread();
+    	listenCondition = new Condition2(lock);    	   
+    	currentSpeaker = null;
+    	currentListener = null;
     	receivedMsg = false;
     }
 
@@ -41,25 +41,24 @@ public class Communicator {
      *
      * @param	word	the integer to transfer.
      */
-    public void speak(int word) {
+    public void speak(int word) {    	
     	lock.acquire();
     	
     	while(currentSpeaker != null) {
     		speakCondition.sleep();
-    	}
+    	}    	    
     	
     	msg = word;
     	currentSpeaker = KThread.currentThread();
     	
-    	while(currentListener == null) {
-    		currentSpeaker.sleep();
-    	}
+    	while(currentListener == null || !receivedMsg) {    		
+    		listenCondition.wake();
+    		speakCondition.sleep();
+    	}    	    
     	
     	receivedMsg = false;
     	speakCondition.wake();
-    	listenCondition.wake();
-    	//currentSpeaker.ready();
-    	//currentListener.ready();
+    	listenCondition.wake();    	
     	
     	lock.release();
     }
@@ -77,18 +76,46 @@ public class Communicator {
     		listenCondition.sleep();
     	}
     	
-    	while(currentSpeaker == null) {
-    		currentListener.sleep();
-    	}
-    	    	
-    	speakCondition.wake();
-    	listenCondition.wake();
-    	receivedMsg = true;
-    	//currentSpeaker.ready();
-    	//currentListener.ready();
+    	currentListener = KThread.currentThread();
     	
-    	lock.release();
+    	while(currentSpeaker == null) {    		
+    		speakCondition.wake();
+    		listenCondition.sleep();
+    	}
+    	      	
+    	receivedMsg = true; 
+    	speakCondition.wake();
+    	listenCondition.wake();    	       	
+    	
+    	lock.release();    	    
     	
     	return msg;
     }       
+    
+    public static void selfTest() {
+    	final Communicator commu = new Communicator();
+
+		KThread thread2 = new KThread(new Runnable() {
+		    public void run() {
+		         System.out.println("--- Thread 2 has begun listening.");
+		         commu.listen();
+		         System.out.println("--- Thread 2 finished listening.");		         
+		    }
+		});
+
+		KThread thread1 = new KThread(new Runnable() {
+		    public void run() {
+		    	int toSend = 8;
+		    	System.out.println("--- Thread 1 has begun speaking.");
+		    	System.out.println("--- Attempting to send the message "+toSend+".");
+		    	commu.speak(toSend);
+		        System.out.println("--- Thread 1 finished speaking.");
+		    }
+		});
+
+		thread1.fork();
+		thread2.fork();
+		thread1.join();
+		thread2.join();    
+    }
 }
