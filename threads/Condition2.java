@@ -14,6 +14,10 @@ import java.util.LinkedList;
  * @see	nachos.threads.Condition
  */
 public class Condition2 {
+	
+	private Lock conditionLock;
+    private LinkedList<KThread> waitQueue = new LinkedList<KThread>();
+    
     /**
      * Allocate a new condition variable.
      *
@@ -37,9 +41,11 @@ public class Condition2 {
 
     	conditionLock.release();
     	
+    	// Add the current thread to the waitQueue for this condition
+    	// and then put it to sleep.
     	boolean intStatus = Machine.interrupt().disable();
-    	waitQueue.add(KThread.currentThread());
-    	KThread.sleep();
+    	waitQueue.add(KThread.currentThread()); 
+    	KThread.sleep(); 
     	Machine.interrupt().restore(intStatus);	
 
     	conditionLock.acquire();
@@ -52,6 +58,8 @@ public class Condition2 {
     public void wake() {
     	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
     	
+    	// If we have threads waiting on this condition, get the first one
+    	// off the waitQueue and add it to the readyQueue.
     	boolean intStatus = Machine.interrupt().disable();    	
     	if(!waitQueue.isEmpty() && waitQueue.peek() != null) {
     		waitQueue.poll().ready();
@@ -66,13 +74,11 @@ public class Condition2 {
     public void wakeAll() {
     	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
     	
+    	// If we have threads waiting on this condition, wake them all up.
     	boolean intStatus = Machine.interrupt().disable();
     	while(!waitQueue.isEmpty()) {
     		wake();
     	}
     	Machine.interrupt().restore(intStatus);
-    }
-
-    private Lock conditionLock;
-    private LinkedList<KThread> waitQueue = new LinkedList<KThread>();
+    }   
 }

@@ -16,7 +16,6 @@ public class Communicator {
     private Condition2 listenCondition;      
     private KThread currentSpeaker;
     private KThread currentListener;
-    private boolean receivedMsg;
     private int msg;
     
     /**
@@ -28,7 +27,6 @@ public class Communicator {
     	listenCondition = new Condition2(lock);    	   
     	currentSpeaker = null;
     	currentListener = null;
-    	receivedMsg = false;
     }
 
     /**
@@ -41,24 +39,32 @@ public class Communicator {
      *
      * @param	word	the integer to transfer.
      */
-    public void speak(int word) {    	
+    public void speak(int word) {    
     	lock.acquire();
     	
+    	// If there is already a thread trying to speek, add this thread to the 
+    	// speak condition variable's waitQueue.
     	while(currentSpeaker != null) {
     		speakCondition.sleep();
     	}    	    
-    	
+    	    	
+    	// Save the message and indicate that this thread is the current speaker.
     	msg = word;
     	currentSpeaker = KThread.currentThread();
     	
-    	while(currentListener == null || !receivedMsg) {    		
+    	// If there is no thread currently listening, then try waking up any
+    	// listening threads in the listen condition's waitQueue and put the
+    	// current speaking thread on the speak condition's waitQueue.
+    	while(currentListener == null) {    		
     		listenCondition.wake();
     		speakCondition.sleep();
     	}    	    
     	
-    	receivedMsg = false;
     	speakCondition.wake();
-    	listenCondition.wake();    	
+    	listenCondition.wake();   
+    	
+    	// Reset the listener to indicate we are done speaking.
+    	currentListener = null;
     	
     	lock.release();
     }
@@ -69,53 +75,80 @@ public class Communicator {
      *
      * @return	the integer transferred.
      */    
-    public int listen() {
+    public int listen() {    	    	
     	lock.acquire();
     	
+    	
+    	// If there is already a thread trying to listen, then add this thread
+    	// to the listen condition's waitQueue.
     	while(currentListener != null) {
     		listenCondition.sleep();
     	}
-    	
+       
+    	// Indicate that this thread is the current listener.
     	currentListener = KThread.currentThread();
     	
+    	// If there is no thread currently speaking, then keep checking for any
+    	// speaking threads in the speak condition's waitQueue and add this thread to
+    	// the listen condition's waitQueue.
     	while(currentSpeaker == null) {    		
     		speakCondition.wake();
     		listenCondition.sleep();
     	}
-    	      	
-    	receivedMsg = true; 
+    	      	    	
     	speakCondition.wake();
-    	listenCondition.wake();    	       	
+    	listenCondition.wake();       	
     	
-    	lock.release();    	    
+    	lock.release();  
+    	
+    	// Reset the current speaker to indicate we are done listening.
+    	currentSpeaker = null;
     	
     	return msg;
     }       
     
     public static void selfTest() {
-    	final Communicator commu = new Communicator();
-
-		KThread thread2 = new KThread(new Runnable() {
-		    public void run() {
-		         System.out.println("--- Thread 2 has begun listening.");
-		         commu.listen();
-		         System.out.println("--- Thread 2 finished listening.");		         
-		    }
-		});
-
-		KThread thread1 = new KThread(new Runnable() {
-		    public void run() {
-		    	int toSend = 8;
-		    	System.out.println("--- Thread 1 has begun speaking.");
-		    	System.out.println("--- Attempting to send the message "+toSend+".");
-		    	commu.speak(toSend);
+    	final Communicator com = new Communicator();
+    	
+    	KThread thread1 = new KThread(new Runnable() {
+		    public void run() {		    	
+		    	System.out.println("--- Thread 1 has begun speaking (msg = 1).");
+		    	com.speak(1);		    	
 		        System.out.println("--- Thread 1 finished speaking.");
 		    }
 		});
 
+		KThread thread2 = new KThread(new Runnable() {
+		    public void run() {
+		         System.out.println("--- Thread 2 has begun listening.");
+		         com.listen();
+		         System.out.println("--- Thread 2 finished listening.");		         
+		    }
+		});
+		
+		KThread thread3 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("--- Thread 3 has begun speaking (msg = 3).");
+				com.speak(3);
+				System.out.println("--- Thread 3 finished speaking.");
+			}
+		});
+		
+		KThread thread4 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("--- Thread 4 has begun listening.");
+				com.listen();
+				System.out.println("--- Thread 4 finished listening.");
+			}
+		});
+
 		thread1.fork();
 		thread2.fork();
+		thread3.fork();
+		thread4.fork();
 		thread1.join();
-		thread2.join();    
+		thread2.join();   
+		thread3.join();
+		thread4.join();
     }
 }
