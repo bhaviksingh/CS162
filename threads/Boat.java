@@ -25,11 +25,11 @@ public class Boat {
 		System.out.println("\n ***Testing Boats with only 2 children***");
 		begin(0, 2, b);
 
-		//System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
-		//begin(1, 2, b);
+		System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
+		begin(1, 2, b);
 
-		// System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
-		// begin(3, 3, b);
+		//System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
+		//begin(3, 3, b);
 	}
 
 	public static void begin(int adults, int children, BoatGrader b) {
@@ -87,7 +87,6 @@ public class Boat {
 				break;
 			}
 			else {
-				printState();
 				System.out.println("Game is not over yet.");
 				pilotLock.acquire();
 				readyAtMolokai.wake();
@@ -122,7 +121,9 @@ public class Boat {
 
 		pilotLock.acquire();
 		while (true) {
+			System.out.println("______In AdultItinerary______");
 			if (boatLocation == 1) { // if the boat is at Molokai, no adult can cross to Molokai
+				System.out.println("______Boat is at MOLOKAI______");
 				return;
 			}
 			if (boatLocation !=  currentLocation){ //if boat is not at the current location
@@ -167,11 +168,12 @@ public class Boat {
 
 		pilotLock.acquire();
 		while (true) {
+			System.out.println("______In ChildItinerary______");
 			if (currentLocation == 0) { //in Oahu
 				if (boatLocation == 0){
 					if (numChildrenOnOahu == 1 && !hasChildPilot) {
-						readyAtOahu.wake();
-						hasChildPilot=true;
+						//readyAtOahu.wake();
+						//hasChildPilot = true;
 						readyAtOahu.sleep();
 					}
 
@@ -230,7 +232,7 @@ public class Boat {
 						readyAtOahu.sleep();
 					} 
 					else {
-						readyAtOahu.sleep();
+						readyAtMolokai.sleep();
 					}
 				}
 			}
