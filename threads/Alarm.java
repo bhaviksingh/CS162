@@ -66,4 +66,60 @@ public class Alarm {
 		Machine.interrupt().restore(intStatus);
     }
 	
+    private static final char dbgAlarm = 'a'; 	// Flag to enable Alarm debug output
+	/**
+	 * Run sanity check on Alarm.waitUntil
+	 */
+	public static void selfTest() {
+		Lib.debug(dbgAlarm, "Alarm Self Test");
+		
+		// Test that alarm wakes up thread after proper amount of time
+		KThread thread = new KThread(new Runnable() {
+			public void run() {
+				final long ticks = 1000;
+				long sleepTime = Machine.timer().getTime();
+				ThreadedKernel.alarm.waitUntil(ticks);
+				long wakeTime = Machine.timer().getTime();
+				
+				Lib.debug(dbgAlarm, (((wakeTime-sleepTime>=ticks) ? "[PASS]" : "[FAIL]") + ": Thread slept at least " + ticks + " ticks " + sleepTime + "->" + wakeTime));
+			}
+		});
+		thread.fork();
+		thread.join();
+		
+		// Test that several sleeping threads wake up in order
+		KThread threadA = new KThread(new TestSeqThread('A',100));
+		KThread threadB = new KThread(new TestSeqThread('B',700));
+		KThread threadC = new KThread(new TestSeqThread('C',1400));
+
+		threadA.fork(); threadB.fork(); threadC.fork();
+		threadA.join(); threadB.join(); threadC.join();
+		
+		Lib.debug(dbgAlarm, (TestSeqThread.wakeSequence.equals("ABC") ? "[PASS]" : "[FAIL") + ": Threads woke up in order (" + TestSeqThread.wakeSequence + ")");
+	}
+	
+	/**
+	 * For testing:
+	 * Thread which immediately sleeps and keeps a static record
+	 * of the order in which it and its siblings wake up
+	 */
+	private static class TestSeqThread implements Runnable {
+		char myName;
+		long mySleepTicks;
+		
+		static String wakeSequence = "";
+		static Lock lock = new Lock();
+		
+		public TestSeqThread(char name, long sleepTicks) {
+			myName = name;
+			mySleepTicks = sleepTicks;
+		}
+		
+		public void run() {
+			ThreadedKernel.alarm.waitUntil(mySleepTicks);
+			lock.acquire();
+			wakeSequence = wakeSequence + myName;
+			lock.release();
+		}
+	}
 }

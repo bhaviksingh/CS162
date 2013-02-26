@@ -250,10 +250,8 @@ public class PriorityScheduler extends Scheduler {
 		private void updateEffectivePriority() {
 			
 			int tempPriority = this.priority;
-			System.out.println("I am " + this);
 			for (PriorityQueue resource: acquired){
 				if (resource.orderedThreads.peek() != null){
-					System.out.println("ordered threads is" + resource.orderedThreads);
 					int resourceMax = resource.orderedThreads.peek().getEffectivePriority();
 					if (tempPriority < resourceMax) {
 						tempPriority = resourceMax;
@@ -262,7 +260,6 @@ public class PriorityScheduler extends Scheduler {
 			}
 
 			if (this.effectivePriority != tempPriority){
-				System.out.println("Changing priority from " + effectivePriority + " to " + tempPriority);
 
 				this.effectivePriority = tempPriority;
 				if(waitingQueue != null && waitingQueue.lockHolder != null)
@@ -361,7 +358,6 @@ public class PriorityScheduler extends Scheduler {
 		 * @param waitQueue will leave the function with no lockholder
 		 */
 		private void relinquish(PriorityQueue releasing){
-			System.out.println("thread with priority" + this.effectivePriority + " is relinquishing to " + this.priority);
 			this.effectivePriority = this.priority; //not sure about this tbh
 			this.acquired.remove(releasing);
 			releasing.lockHolder = null; //maybe this doesnt need to be there
@@ -391,7 +387,16 @@ public class PriorityScheduler extends Scheduler {
 		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
 		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
 		
+		ThreadQueue wq = ThreadedKernel.scheduler.newThreadQueue(true);
+		KThread kt_a = new KThread(), kt_b = new KThread();
+		
 		boolean status = Machine.interrupt().disable();
+
+		wq.waitForAccess(kt_a);
+		wq.waitForAccess(kt_b);
+		
+		KThread fuckface = wq.nextThread();
+		Lib.assertTrue(fuckface == kt_a);
 		
 		kt_1.setName("kt_1");
 		kt_2.setName("kt_2");
@@ -408,7 +413,6 @@ public class PriorityScheduler extends Scheduler {
 		
 		ThreadedKernel.scheduler.setPriority(kt_1, 6);
 
-		System.out.println("FIRST TEST PROP UP: " + ThreadedKernel.scheduler.getEffectivePriority(kt_4));
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==6);
 		
 		KThread kt_5 = new KThread();
@@ -417,14 +421,14 @@ public class PriorityScheduler extends Scheduler {
 		
 		tq1.waitForAccess(kt_5);
 		
-		System.out.println("SECOND TEST ADDED 5,7: " + ThreadedKernel.scheduler.getEffectivePriority(kt_4));
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
 		
 		tq1.nextThread();
 
-		System.out.println("SECOND TEST ADDED 5,7: " + ThreadedKernel.scheduler.getEffectivePriority(kt_4));
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
 		
 		Machine.interrupt().restore(status);
+		
+	
 	}
 }
