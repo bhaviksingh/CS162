@@ -40,18 +40,21 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
     public void speak(int word) {    
-    	//System.out.println("--- called speak() with the msg "+word);
     	lock.acquire();
     	
+    	// If there is already a thread trying to speek, add this thread to the 
+    	// speak condition variable's waitQueue.
     	while(currentSpeaker != null) {
     		speakCondition.sleep();
     	}    	    
-    	
-    	//System.out.println("--- reached checkpoint 1 in speak()");
-    	
+    	    	
+    	// Save the message and indicate that this thread is the current speaker.
     	msg = word;
     	currentSpeaker = KThread.currentThread();
     	
+    	// If there is no thread currently listening, then try waking up any
+    	// listening threads in the listen condition's waitQueue and put the
+    	// current speaking thread on the speak condition's waitQueue.
     	while(currentListener == null) {    		
     		listenCondition.wake();
     		speakCondition.sleep();
@@ -60,7 +63,7 @@ public class Communicator {
     	speakCondition.wake();
     	listenCondition.wake();   
     	
-    	//System.out.println("--- reached checkpoint 2 in speak()");
+    	// Reset the listener to indicate we are done speaking.
     	currentListener = null;
     	
     	lock.release();
@@ -72,18 +75,22 @@ public class Communicator {
      *
      * @return	the integer transferred.
      */    
-    public int listen() {    	
-    	//System.out.println("--- called listen()");
+    public int listen() {    	    	
     	lock.acquire();
     	
+    	
+    	// If there is already a thread trying to listen, then add this thread
+    	// to the listen condition's waitQueue.
     	while(currentListener != null) {
     		listenCondition.sleep();
     	}
-    	
-    	//System.out.println("--- reached checkpoint 1 in listen()");
-    	
+       
+    	// Indicate that this thread is the current listener.
     	currentListener = KThread.currentThread();
     	
+    	// If there is no thread currently speaking, then keep checking for any
+    	// speaking threads in the speak condition's waitQueue and add this thread to
+    	// the listen condition's waitQueue.
     	while(currentSpeaker == null) {    		
     		speakCondition.wake();
     		listenCondition.sleep();
@@ -94,8 +101,8 @@ public class Communicator {
     	
     	lock.release();  
     	
+    	// Reset the current speaker to indicate we are done listening.
     	currentSpeaker = null;
-    	//System.out.println("--- returning from listen() with the msg "+msg);
     	
     	return msg;
     }       
