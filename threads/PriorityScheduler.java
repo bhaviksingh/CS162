@@ -251,7 +251,7 @@ public class PriorityScheduler extends Scheduler {
 			
 			int tempPriority = this.priority;
 			for (PriorityQueue resource: acquired){
-				if (resource.orderedThreads.peek() != null){
+				if (resource.transferPriority && resource.orderedThreads.peek() != null){
 					int resourceMax = resource.orderedThreads.peek().getEffectivePriority();
 					if (tempPriority < resourceMax) {
 						tempPriority = resourceMax;
@@ -262,7 +262,7 @@ public class PriorityScheduler extends Scheduler {
 			if (this.effectivePriority != tempPriority){
 
 				this.effectivePriority = tempPriority;
-				if(waitingQueue != null && waitingQueue.lockHolder != null)
+				if(waitingQueue != null && waitingQueue.lockHolder != null && this.waitingQueue.transferPriority)
 				{
 					this.waitingQueue.lockHolder.updateEffectivePriority();
 				}
@@ -296,10 +296,7 @@ public class PriorityScheduler extends Scheduler {
 		    }
 		    
 		    if(waitingQueue != null && waitingQueue.lockHolder != null) {
-		    	if (waitingQueue.transferPriority){
-		    		System.out.println("set priort is calling update");
-		    		waitingQueue.lockHolder.updateEffectivePriority();
-		    	}
+		    	waitingQueue.lockHolder.updateEffectivePriority();
 		    }
 		}
 
@@ -322,7 +319,7 @@ public class PriorityScheduler extends Scheduler {
 		  
 		    waitQueue.orderedThreads.add(this);
 		    
-		    if (waitingQueue.lockHolder != null && waitingQueue.transferPriority){
+		    if (waitingQueue != null && waitingQueue.lockHolder != null){
 		    	waitingQueue.lockHolder.updateEffectivePriority();
 		    }
 		}
@@ -361,7 +358,7 @@ public class PriorityScheduler extends Scheduler {
 			this.effectivePriority = this.priority; //not sure about this tbh
 			this.acquired.remove(releasing);
 			releasing.lockHolder = null; //maybe this doesnt need to be there
-			if (this.waitingQueue!= null && this.waitingQueue.transferPriority && this.waitingQueue.lockHolder != null){
+			if (this.waitingQueue!= null && this.waitingQueue.lockHolder != null){
 				this.waitingQueue.lockHolder.updateEffectivePriority();
 			}
 		}
