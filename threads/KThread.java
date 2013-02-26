@@ -295,13 +295,11 @@ public class KThread {
 	 */
 	public void join() {    	
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
-
-
 		Lib.assertTrue(this != currentThread);  //Threads cannot join to themselves
+		
+		boolean intStatus = Machine.interrupt().disable(); //Must be atomic
 
 		if (status == statusFinished) { return;}  //You cannot join to a finished thread
-
-		boolean intStatus = Machine.interrupt().disable(); //Must be atomic
 
 		if (status == statusNew) { this.ready();} //New threads must be placed onto ready queue
 

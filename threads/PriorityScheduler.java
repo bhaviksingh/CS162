@@ -182,6 +182,7 @@ public class PriorityScheduler extends Scheduler {
 		protected class ThreadComparator implements Comparator<ThreadState> {
 			@Override
 			public int compare(ThreadState t1, ThreadState t2) {
+				System.out.println("COMPARE CALLED");
 				if (t1.getEffectivePriority() > t2.getEffectivePriority()) {
 					return -1;
 				} else if (t1.getEffectivePriority() < t2.getEffectivePriority()) {
@@ -250,11 +251,8 @@ public class PriorityScheduler extends Scheduler {
 		private void updateEffectivePriority() {
 			
 			//System.out.println("Updating priority for "+ this);
-			int tempPriority = 0;
+			int tempPriority = 0; //start at an incredibly low number
 			
-			if(waitingQueue !=null){
-				this.waitingQueue.orderedThreads.remove(this);
-			}
 			
 			for (PriorityQueue resource: acquired){
 				if (resource.transferPriority && resource.orderedThreads.peek() != null){
@@ -266,25 +264,26 @@ public class PriorityScheduler extends Scheduler {
 				}
 			}
 			
-			if (this.effectivePriority != tempPriority){
-				//if the priority is changed, let it be lowered but not lower than prioirty???
+			if (this.effectivePriority != tempPriority){ 
+				
+				if(this.waitingQueue != null) waitingQueue.orderedThreads.remove(this);
+				
+				//if the priority is changed, it could be lowered, but never lower than the priority itself
 				if (tempPriority < this.priority) {
-					this.effectivePriority = this.priority;
+					this.effectivePriority = this.priority; //so if tempPriority is 0, this is the case that gets called
 				} else {
-					this.effectivePriority = tempPriority;
+					System.out.println("If donation is off, this shouldn't be happening!!" + this + " to " + tempPriority);
+					this.effectivePriority = tempPriority; //else its gone up!
 				}
-				//add it back
-				if (waitingQueue != null) this.waitingQueue.orderedThreads.add(this);
+				
+ 				if(this.waitingQueue != null) waitingQueue.orderedThreads.add(this);
 
-				//propogate
-				if(waitingQueue != null && waitingQueue.lockHolder != null && waitingQueue.transferPriority)
+				//if the queue im waiting on exists, propogate iff donation is on!
+				if(waitingQueue != null && waitingQueue.lockHolder != null && waitingQueue.lockHolder != this)
 				{
 					this.waitingQueue.lockHolder.updateEffectivePriority();
 				}
-			}  else {
-				//nothing changed so theres really nothign to do
-				if (waitingQueue != null) this.waitingQueue.orderedThreads.add(this);
-			}
+			}  
 		}
 		
 		private int maxPriority(PriorityQueue resource) {
@@ -308,15 +307,23 @@ public class PriorityScheduler extends Scheduler {
 			return;
 
 		    
+			if(this.waitingQueue != null) waitingQueue.orderedThreads.remove(this);
+
+			
 		    this.priority = priority;
 
 		    if (this.priority > this.effectivePriority) {
 		    	this.effectivePriority = this.priority;
 		    }
 		    
+			if(this.waitingQueue != null) waitingQueue.orderedThreads.add(this);
 
-		    if(waitingQueue != null && waitingQueue.lockHolder != null) {
-		    	waitingQueue.lockHolder.updateEffectivePriority();
+		    if(this.waitingQueue != null){
+		    System.out.println("After setpriority ordered threads is "+ this.waitingQueue.orderedThreads + " top is " + this.waitingQueue.orderedThreads.peek());
+		    }
+		    
+		    if(this.waitingQueue != null && this.waitingQueue.lockHolder != null) {
+		    	this.waitingQueue.lockHolder.updateEffectivePriority();
 		    }
 		}
 
@@ -339,8 +346,8 @@ public class PriorityScheduler extends Scheduler {
 		  
 		    waitQueue.orderedThreads.add(this);
 		    
-		    if (waitingQueue != null && waitingQueue.lockHolder != null){
-		    	waitingQueue.lockHolder.updateEffectivePriority();
+		    if (this.waitingQueue != null && this.waitingQueue.lockHolder != null){
+		    	this.waitingQueue.lockHolder.updateEffectivePriority();
 		    }
 		}
 		
@@ -360,11 +367,11 @@ public class PriorityScheduler extends Scheduler {
 		    if(waitQueue.lockHolder != null) {
 		    	waitQueue.lockHolder.relinquish(waitQueue);
 		    }
-		    if (waitingQueue == waitQueue){
-		    	waitingQueue = null;
+		    if (this.waitingQueue == waitQueue){
+		    	this.waitingQueue = null;
 		    }
-		    waitQueue.orderedThreads.remove(this); //this was different from the design doc!
-		    waitQueue.lockHolder = this; //this was also different!
+		    waitQueue.orderedThreads.remove(this); //if i was on the wait queue, remove me
+		    waitQueue.lockHolder = this; //and set me to lockholder
 		    this.acquired.add(waitQueue);
 		    this.updateEffectivePriority();
 		}
@@ -402,23 +409,35 @@ public class PriorityScheduler extends Scheduler {
 		boolean status = Machine.interrupt().disable();
 	
 		//basic test!
-
+		System.out.println("Basic test");
 		ThreadQueue wq = ThreadedKernel.scheduler.newThreadQueue(true);
-		KThread kt_a = new KThread(), kt_b = new KThread();
-
-		wq.waitForAccess(kt_a);
-		wq.waitForAccess(kt_b);
-
-		System.out.println("SETTING PRIORITY");
-		ThreadedKernel.scheduler.setPriority(kt_b, 3);
-		ThreadedKernel.scheduler.setPriority(kt_a, 2);
+		KThread kt_a = new KThread(), kt_b = new KThread(), kt_c = new KThread();
+		kt_a.setName("kt_a"); kt_b.setName("kt_b"); kt_c.setName("kt_c");
 		
+		wq.waitForAccess(kt_a);
+		Machine.interrupt().restore(status);
+		try {
+		    Thread.sleep(100); 
+		} catch(InterruptedException ex) {
+		    Thread.currentThread().interrupt();
+		}
+		status = Machine.interrupt().disable();
+		wq.waitForAccess(kt_b); //this ensures that thread b was added after
+		wq.waitForAccess(kt_c);
+		System.out.println("SETTING PRIORITY");
+		
+		ThreadedKernel.scheduler.setPriority(kt_a, 2);
+		ThreadedKernel.scheduler.setPriority(kt_b, 3);
+		ThreadedKernel.scheduler.setPriority(kt_c, 2);
 		
 		System.out.println("priorities are " + ThreadedKernel.scheduler.getEffectivePriority(kt_b) + " " + ThreadedKernel.scheduler.getEffectivePriority(kt_a));
 		KThread fuckface = wq.nextThread();
+		Lib.assertTrue(fuckface == kt_b);
+		fuckface = wq.nextThread();
 		Lib.assertTrue(fuckface == kt_a);
 		
 		//propogation test!
+		System.out.println("Propogation test");
 		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
 		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
 		
@@ -441,18 +460,19 @@ public class PriorityScheduler extends Scheduler {
 		
 		KThread kt_5 = new KThread();
 		
-		System.out.println("ADDING 5");
 		ThreadedKernel.scheduler.setPriority(kt_5, 7);
-		System.out.println("WFA 5");
+
 		tq1.waitForAccess(kt_5);
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
 		
 		//next thread test!
+		System.out.println("Next thread test");
 		tq1.nextThread();
 
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);	
 	
 		//no donation test
+		System.out.println("No donation test");
 		ThreadQueue d_1 = ThreadedKernel.scheduler.newThreadQueue(true);
 		ThreadQueue d_2 = ThreadedKernel.scheduler.newThreadQueue(false);
 		
@@ -461,9 +481,8 @@ public class PriorityScheduler extends Scheduler {
 		KThread n_3 = new KThread();
 		KThread n_4 = new KThread();
 		
-		System.out.println("STARTING");
 		ThreadedKernel.scheduler.setPriority(n_1, 4);
-		ThreadedKernel.scheduler.setPriority(n_2, 1);
+		ThreadedKernel.scheduler.setPriority(n_2, 3);
 		ThreadedKernel.scheduler.setPriority(n_3, 2);
 		ThreadedKernel.scheduler.setPriority(n_4, 1);
 		
@@ -472,11 +491,16 @@ public class PriorityScheduler extends Scheduler {
 		d_2.waitForAccess(n_2);
 		d_2.acquire(n_4);
 		d_1.acquire(n_2);
+				
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_2) == 4); //the first queue donates
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_4) == 1); //but the donation doesn't propogate
 		
-		System.out.println("MOTHERFUCKER 1: " + ThreadedKernel.scheduler.getEffectivePriority(n_2));
-		System.out.println("MOTHERFUCKER 2: " + ThreadedKernel.scheduler.getEffectivePriority(n_4));
+		ThreadedKernel.scheduler.setPriority(n_1, 7);
 		
-		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_2) == 4);
+		System.out.println(ThreadedKernel.scheduler.getEffectivePriority(n_2));
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_2) == 7); //this should have changed
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_4) == 1); //but this shouldn't!
+
 
 		Machine.interrupt().restore(status);
 
