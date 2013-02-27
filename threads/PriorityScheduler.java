@@ -150,7 +150,7 @@ public class PriorityScheduler extends Scheduler {
 		    	System.out.println("Top is " + orderedThreads.peek());
 			    KThread nextThread = orderedThreads.poll().thread;
 			    acquire(nextThread);
-			    return this.lockHolder.thread;
+			    return this.lockHolder.thread; //this assumes that its worked
 		    } 
 		    return null;
 		}
@@ -216,7 +216,6 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public ThreadState(KThread thread) {
 		    this.thread = thread;
-		    this.acquired = new HashSet<PriorityQueue>();
 		    setPriority(priorityDefault);
 		}
 
@@ -253,7 +252,6 @@ public class PriorityScheduler extends Scheduler {
 			//System.out.println("Updating priority for "+ this);
 			int tempPriority = 0; //start at an incredibly low number
 			
-			
 			for (PriorityQueue resource: acquired){
 				if (resource.transferPriority && resource.orderedThreads.peek() != null){
 					//System.out.println("orderedthreads is " + resource.orderedThreads);
@@ -266,8 +264,6 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (this.effectivePriority != tempPriority){ 
 				
-				if(this.waitingQueue != null) waitingQueue.orderedThreads.remove(this);
-				
 				//if the priority is changed, it could be lowered, but never lower than the priority itself
 				if (tempPriority < this.priority) {
 					this.effectivePriority = this.priority; //so if tempPriority is 0, this is the case that gets called
@@ -276,7 +272,10 @@ public class PriorityScheduler extends Scheduler {
 					this.effectivePriority = tempPriority; //else its gone up!
 				}
 				
- 				if(this.waitingQueue != null) waitingQueue.orderedThreads.add(this);
+ 				if(this.waitingQueue != null) {
+ 					waitingQueue.orderedThreads.remove(this);
+ 					waitingQueue.orderedThreads.add(this);
+ 				}
 
 				//if the queue im waiting on exists, propogate iff donation is on!
 				if(waitingQueue != null && waitingQueue.lockHolder != null && waitingQueue.lockHolder != this)
@@ -286,16 +285,6 @@ public class PriorityScheduler extends Scheduler {
 			}  
 		}
 		
-		private int maxPriority(PriorityQueue resource) {
-			int max = -100; //this is terrible
-			for(ThreadState state: resource.orderedThreads){
-				if (state.getPriority() > max){
-					max = state.getPriority();
-				}
-			}
-			return max;
-			
-		}
 
 		/**
 		 * Set the priority of the associated thread to the specified value.
@@ -307,20 +296,21 @@ public class PriorityScheduler extends Scheduler {
 			return;
 
 		    
-			if(this.waitingQueue != null) waitingQueue.orderedThreads.remove(this);
+			if(this.waitingQueue != null) 
 
 			
 		    this.priority = priority;
 
 		    if (this.priority > this.effectivePriority) {
 		    	this.effectivePriority = this.priority;
+		    } else {
+		    	this.updateEffectivePriority(); //our priority may be the only thing holding effective up
 		    }
 		    
-			if(this.waitingQueue != null) waitingQueue.orderedThreads.add(this);
-
-		    if(this.waitingQueue != null){
-		    System.out.println("After setpriority ordered threads is "+ this.waitingQueue.orderedThreads + " top is " + this.waitingQueue.orderedThreads.peek());
-		    }
+			if(this.waitingQueue != null) {
+				waitingQueue.orderedThreads.add(this);
+				waitingQueue.orderedThreads.remove(this);
+			}
 		    
 		    if(this.waitingQueue != null && this.waitingQueue.lockHolder != null) {
 		    	this.waitingQueue.lockHolder.updateEffectivePriority();
@@ -401,7 +391,7 @@ public class PriorityScheduler extends Scheduler {
 		private int effectivePriority;
 		private PriorityQueue waitingQueue = null;
 		private long waitingTime = 0;
-		private HashSet<PriorityQueue> acquired;
+		private HashSet<PriorityQueue> acquired = new HashSet<PriorityQueue>();
     }
     
 
@@ -500,7 +490,6 @@ public class PriorityScheduler extends Scheduler {
 		System.out.println(ThreadedKernel.scheduler.getEffectivePriority(n_2));
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_2) == 7); //this should have changed
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(n_4) == 1); //but this shouldn't!
-
 
 		Machine.interrupt().restore(status);
 
