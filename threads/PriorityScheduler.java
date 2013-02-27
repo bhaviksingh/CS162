@@ -250,7 +250,7 @@ public class PriorityScheduler extends Scheduler {
 		private void updateEffectivePriority() {
 			
 			//System.out.println("Updating priority for "+ this);
-			int tempPriority = 0; //start at an incredibly low number
+			int tempPriority = -100; //start at an incredibly low number
 			
 			for (PriorityQueue resource: acquired){
 				if (resource.transferPriority && resource.orderedThreads.peek() != null){
