@@ -217,17 +217,5 @@ public class Boat {
 		bg.ChildRideToMolokai();
 	}
 	
-	public static void selfTest() {
-		BoatGrader b = new BoatGrader();
-
-		System.out.println("\n --- Testing boat problem with 2 children, 0 adults.");
-		begin(0, 2, b);
-
-		System.out.println("\n --- Testing boat problem with 2 children, 1 adult.");
-		begin(1, 2, b);
-
-		System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
-		begin(3, 3, b);
-	}
 
 }
