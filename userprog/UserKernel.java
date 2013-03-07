@@ -3,6 +3,7 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+import java.util.LinkedList;
 
 /**
  * A kernel that can support multiple user processes.
@@ -12,7 +13,7 @@ public class UserKernel extends ThreadedKernel {
      * Allocate a new user kernel.
      */
     public UserKernel() {
-	super();
+    	super();
     }
 
     /**
@@ -20,33 +21,45 @@ public class UserKernel extends ThreadedKernel {
      * processor's exception handler.
      */
     public void initialize(String[] args) {
-	super.initialize(args);
-
-	console = new SynchConsole(Machine.console());
+		super.initialize(args);
 	
-	Machine.processor().setExceptionHandler(new Runnable() {
-		public void run() { exceptionHandler(); }
-	    });
+		console = new SynchConsole(Machine.console());
+		
+		Machine.processor().setExceptionHandler(new Runnable() {
+			public void run() { exceptionHandler(); }
+		});		
+		
+		// create global LL of pages 
+		freePages = new LinkedList<Integer>();
+		
+		// populate this LL of pages 
+		int numPhysPages = Machine.processor().getNumPhysPages();
+		for(int i = 0; i < numPhysPages; i++) {
+			freePages.add(new Integer(i));
+		}
+		
+		// create lock for synchronization purposes when accessing this LL of pages
+		pageListLock = new Lock();
     }
 
     /**
      * Test the console device.
      */	
     public void selfTest() {
-	super.selfTest();
-
-	System.out.println("Testing the console device. Typed characters");
-	System.out.println("will be echoed until q is typed.");
-
-	char c;
-
-	do {
-	    c = (char) console.readByte(true);
-	    console.writeByte(c);
-	}
-	while (c != 'q');
-
-	System.out.println("");
+		super.selfTest();
+	
+		System.out.println("Testing the console device. Typed characters");
+		System.out.println("will be echoed until q is typed.");
+	
+		char c;
+	
+		do {
+		    c = (char) console.readByte(true);
+		    console.writeByte(c);
+		}
+		while (c != 'q');
+	
+		System.out.println("");
     }
 
     /**
@@ -55,10 +68,10 @@ public class UserKernel extends ThreadedKernel {
      * @return	the current process, or <tt>null</tt> if no process is current.
      */
     public static UserProcess currentProcess() {
-	if (!(KThread.currentThread() instanceof UThread))
-	    return null;
-	
-	return ((UThread) KThread.currentThread()).process;
+		if (!(KThread.currentThread() instanceof UThread))
+		    return null;
+		
+		return ((UThread) KThread.currentThread()).process;
     }
 
     /**
@@ -75,11 +88,11 @@ public class UserKernel extends ThreadedKernel {
      * that caused the exception.
      */
     public void exceptionHandler() {
-	Lib.assertTrue(KThread.currentThread() instanceof UThread);
-
-	UserProcess process = ((UThread) KThread.currentThread()).process;
-	int cause = Machine.processor().readRegister(Processor.regCause);
-	process.handleException(cause);
+		Lib.assertTrue(KThread.currentThread() instanceof UThread);
+	
+		UserProcess process = ((UThread) KThread.currentThread()).process;
+		int cause = Machine.processor().readRegister(Processor.regCause);
+		process.handleException(cause);
     }
 
     /**
@@ -90,21 +103,21 @@ public class UserKernel extends ThreadedKernel {
      * @see	nachos.machine.Machine#getShellProgramName
      */
     public void run() {
-	super.run();
-
-	UserProcess process = UserProcess.newUserProcess();
+		super.run();
 	
-	String shellProgram = Machine.getShellProgramName();	
-	Lib.assertTrue(process.execute(shellProgram, new String[] { }));
-
-	KThread.currentThread().finish();
+		UserProcess process = UserProcess.newUserProcess();
+		
+		String shellProgram = Machine.getShellProgramName();	
+		Lib.assertTrue(process.execute(shellProgram, new String[] { }));
+	
+		KThread.currentThread().finish();
     }
 
     /**
      * Terminate this kernel. Never returns.
      */
     public void terminate() {
-	super.terminate();
+    	super.terminate();
     }
 
     /** Globally accessible reference to the synchronized console. */
@@ -112,4 +125,10 @@ public class UserKernel extends ThreadedKernel {
 
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
+    
+    // linked list of free (available) physical pages
+    public static LinkedList<Integer> freePages;
+    
+    // lock for synchronization when accessing list of free pages
+    public static Lock pageListLock;
 }
