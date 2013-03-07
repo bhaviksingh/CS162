@@ -23,10 +23,10 @@ public class UserProcess {
      * Allocate a new process.
      */
     public UserProcess() {
-	int numPhysPages = Machine.processor().getNumPhysPages();
-	pageTable = new TranslationEntry[numPhysPages];
-	for (int i=0; i<numPhysPages; i++)
-	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+		int numPhysPages = Machine.processor().getNumPhysPages();
+		pageTable = new TranslationEntry[numPhysPages];
+		for (int i=0; i<numPhysPages; i++)
+		    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
     
     /**
@@ -37,7 +37,7 @@ public class UserProcess {
      * @return	a new process of the correct class.
      */
     public static UserProcess newUserProcess() {
-	return (UserProcess)Lib.constructObject(Machine.getProcessClassName());
+    	return (UserProcess)Lib.constructObject(Machine.getProcessClassName());
     }
 
     /**
@@ -49,12 +49,12 @@ public class UserProcess {
      * @return	<tt>true</tt> if the program was successfully executed.
      */
     public boolean execute(String name, String[] args) {
-	if (!load(name, args))
-	    return false;
+		if (!load(name, args))
+		    return false;
+		
+		new UThread(this).setName(name).fork();
 	
-	new UThread(this).setName(name).fork();
-
-	return true;
+		return true;
     }
 
     /**
@@ -69,7 +69,7 @@ public class UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-	Machine.processor().setPageTable(pageTable);
+    	Machine.processor().setPageTable(pageTable);
     }
 
     /**
@@ -87,18 +87,18 @@ public class UserProcess {
      *		found.
      */
     public String readVirtualMemoryString(int vaddr, int maxLength) {
-	Lib.assertTrue(maxLength >= 0);
-
-	byte[] bytes = new byte[maxLength+1];
-
-	int bytesRead = readVirtualMemory(vaddr, bytes);
-
-	for (int length=0; length<bytesRead; length++) {
-	    if (bytes[length] == 0)
-		return new String(bytes, 0, length);
-	}
-
-	return null;
+		Lib.assertTrue(maxLength >= 0);
+	
+		byte[] bytes = new byte[maxLength+1];
+	
+		int bytesRead = readVirtualMemory(vaddr, bytes);
+	
+		for (int length=0; length<bytesRead; length++) {
+		    if (bytes[length] == 0)
+			return new String(bytes, 0, length);
+		}
+	
+		return null;
     }
 
     /**
@@ -110,7 +110,7 @@ public class UserProcess {
      * @return	the number of bytes successfully transferred.
      */
     public int readVirtualMemory(int vaddr, byte[] data) {
-	return readVirtualMemory(vaddr, data, 0, data.length);
+    	return readVirtualMemory(vaddr, data, 0, data.length);
     }
 
     /**
@@ -127,20 +127,68 @@ public class UserProcess {
      *			the array.
      * @return	the number of bytes successfully transferred.
      */
-    public int readVirtualMemory(int vaddr, byte[] data, int offset,
-				 int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
-
-	byte[] memory = Machine.processor().getMemory();
+    public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+		
+		// if the virtual address given is out of range, just return 0 because it is invalid
+		if (vaddr < 0 || (length > Machine.processor().makeAddress(numPages - 1, pageSize - 1) - vaddr)) {
+			return 0;
+		}		
 	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
-
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(memory, vaddr, data, offset, amount);
-
-	return amount;
+		byte[] memory = Machine.processor().getMemory();
+		
+		int numBytesTransferred = 0;
+		
+		// get the starting and ending virtual pages
+		// starting = vaddr (since it's first byte of virtual memory to read)
+		// ending = vaddr + length (first byte to read + number of bytes total to read)
+		int startVP = Machine.processor().pageFromAddress(vaddr);
+		int endVP = Machine.processor().pageFromAddress(vaddr + length);
+		
+		// variables we'll use later in our iterations
+		int readLength = 0; // how much read in this iteration
+		int currentPhysAddr = 0; // physical addr of current page this iteration
+		int currentOffset = 0; // offset for current page this iteration
+		
+		try {
+			for(int i = startVP; i < endVP; i++) {
+				// if this page isn't valid, just break the loop
+				if(!pageTable[i].valid) {
+					break;
+				}
+				
+				// get the current physical address of current page given the initial offset
+				currentPhysAddr = Machine.processor().makeAddress(i, offset);
+				
+				// get the current offset using the virtual address of current page
+				currentOffset = Machine.processor().offsetFromAddress(i * pageSize);
+				
+				// get the number of bytes read from this page for this iteration
+				// (will either be length or the entire page minus its offset, 
+				// depending on which is smaller)
+				readLength = Math.min(length, pageSize - currentOffset);
+				
+				// copy memory --> data 
+				System.arraycopy(memory, currentPhysAddr,  data,  offset + numBytesTransferred,  readLength);
+				
+				// update how many bytes we transferred
+				numBytesTransferred += readLength;
+			}
+			
+			return numBytesTransferred;
+		}
+		catch(Exception e) {
+			return numBytesTransferred;
+		}
+		
+		// for now, just assume that virtual addresses equal physical addresses
+		/*if (vaddr < 0 || vaddr >= memory.length)
+		    return 0;
+	
+		int amount = Math.min(length, memory.length-vaddr);
+		System.arraycopy(memory, vaddr, data, offset, amount);
+	
+		return amount;*/			
     }
 
     /**
@@ -153,7 +201,7 @@ public class UserProcess {
      * @return	the number of bytes successfully transferred.
      */
     public int writeVirtualMemory(int vaddr, byte[] data) {
-	return writeVirtualMemory(vaddr, data, 0, data.length);
+    	return writeVirtualMemory(vaddr, data, 0, data.length);
     }
 
     /**
@@ -170,20 +218,19 @@ public class UserProcess {
      *			virtual memory.
      * @return	the number of bytes successfully transferred.
      */
-    public int writeVirtualMemory(int vaddr, byte[] data, int offset,
-				  int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
-
-	byte[] memory = Machine.processor().getMemory();
+    public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
-
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(data, offset, memory, vaddr, amount);
-
-	return amount;
+		byte[] memory = Machine.processor().getMemory();
+		
+		// for now, just assume that virtual addresses equal physical addresses
+		if (vaddr < 0 || vaddr >= memory.length)
+		    return 0;
+	
+		int amount = Math.min(length, memory.length-vaddr);
+		System.arraycopy(data, offset, memory, vaddr, amount);
+	
+		return amount;
     }
 
     /**
@@ -282,28 +329,27 @@ public class UserProcess {
      * @return	<tt>true</tt> if the sections were successfully loaded.
      */
     protected boolean loadSections() {
-	if (numPages > Machine.processor().getNumPhysPages()) {
-	    coff.close();
-	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
-	    return false;
-	}
+		if (numPages > Machine.processor().getNumPhysPages()) {
+		    coff.close();
+		    Lib.debug(dbgProcess, "\tinsufficient physical memory");
+		    return false;
+		}
 
-	// load sections
-	for (int s=0; s<coff.getNumSections(); s++) {
-	    CoffSection section = coff.getSection(s);
+		// load sections
+		for (int s=0; s<coff.getNumSections(); s++) {
+			CoffSection section = coff.getSection(s);
 	    
-	    Lib.debug(dbgProcess, "\tinitializing " + section.getName()
-		      + " section (" + section.getLength() + " pages)");
+			Lib.debug(dbgProcess, "\tinitializing " + section.getName() + " section (" + section.getLength() + " pages)");
 
-	    for (int i=0; i<section.getLength(); i++) {
-		int vpn = section.getFirstVPN()+i;
-
-		// for now, just assume virtual addresses=physical addresses
-		section.loadPage(i, vpn);
-	    }
-	}
+			for (int i=0; i<section.getLength(); i++) {
+		    	int vpn = section.getFirstVPN()+i;
 	
-	return true;
+				// for now, just assume virtual addresses=physical addresses
+				section.loadPage(i, vpn);
+	    	}
+		}
+	
+		return true;
     }
 
     /**
@@ -320,44 +366,43 @@ public class UserProcess {
      * and initialize all other registers to 0.
      */
     public void initRegisters() {
-	Processor processor = Machine.processor();
-
-	// by default, everything's 0
-	for (int i=0; i<processor.numUserRegisters; i++)
-	    processor.writeRegister(i, 0);
-
-	// initialize PC and SP according
-	processor.writeRegister(Processor.regPC, initialPC);
-	processor.writeRegister(Processor.regSP, initialSP);
-
-	// initialize the first two argument registers to argc and argv
-	processor.writeRegister(Processor.regA0, argc);
-	processor.writeRegister(Processor.regA1, argv);
+		Processor processor = Machine.processor();
+	
+		// by default, everything's 0
+		for (int i=0; i<processor.numUserRegisters; i++)
+		    processor.writeRegister(i, 0);
+	
+		// initialize PC and SP according
+		processor.writeRegister(Processor.regPC, initialPC);
+		processor.writeRegister(Processor.regSP, initialSP);
+	
+		// initialize the first two argument registers to argc and argv
+		processor.writeRegister(Processor.regA0, argc);
+		processor.writeRegister(Processor.regA1, argv);
     }
 
     /**
      * Handle the halt() system call. 
      */
     private int handleHalt() {
-
-	Machine.halt();
-	
-	Lib.assertNotReached("Machine.halt() did not halt machine!");
-	return 0;
+		Machine.halt();
+		
+		Lib.assertNotReached("Machine.halt() did not halt machine!");
+		return 0;
     }
 
 
     private static final int
         syscallHalt = 0,
-	syscallExit = 1,
-	syscallExec = 2,
-	syscallJoin = 3,
-	syscallCreate = 4,
-	syscallOpen = 5,
-	syscallRead = 6,
-	syscallWrite = 7,
-	syscallClose = 8,
-	syscallUnlink = 9;
+		syscallExit = 1,
+		syscallExec = 2,
+		syscallJoin = 3,
+		syscallCreate = 4,
+		syscallOpen = 5,
+		syscallRead = 6,
+		syscallWrite = 7,
+		syscallClose = 8,
+		syscallUnlink = 9;
 
     /**
      * Handle a syscall exception. Called by <tt>handleException()</tt>. The
@@ -388,16 +433,16 @@ public class UserProcess {
      * @return	the value to be returned to the user.
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
-	switch (syscall) {
-	case syscallHalt:
-	    return handleHalt();
-
-
-	default:
-	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
-	    Lib.assertNotReached("Unknown system call!");
-	}
-	return 0;
+		switch (syscall) {
+		case syscallHalt:
+		    return handleHalt();
+	
+	
+		default:
+		    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
+		    Lib.assertNotReached("Unknown system call!");
+		}
+		return 0;
     }
 
     /**
@@ -409,25 +454,25 @@ public class UserProcess {
      * @param	cause	the user exception that occurred.
      */
     public void handleException(int cause) {
-	Processor processor = Machine.processor();
-
-	switch (cause) {
-	case Processor.exceptionSyscall:
-	    int result = handleSyscall(processor.readRegister(Processor.regV0),
-				       processor.readRegister(Processor.regA0),
-				       processor.readRegister(Processor.regA1),
-				       processor.readRegister(Processor.regA2),
-				       processor.readRegister(Processor.regA3)
-				       );
-	    processor.writeRegister(Processor.regV0, result);
-	    processor.advancePC();
-	    break;				       
-				       
-	default:
-	    Lib.debug(dbgProcess, "Unexpected exception: " +
-		      Processor.exceptionNames[cause]);
-	    Lib.assertNotReached("Unexpected exception");
-	}
+		Processor processor = Machine.processor();
+	
+		switch (cause) {
+		case Processor.exceptionSyscall:
+		    int result = handleSyscall(processor.readRegister(Processor.regV0),
+					       processor.readRegister(Processor.regA0),
+					       processor.readRegister(Processor.regA1),
+					       processor.readRegister(Processor.regA2),
+					       processor.readRegister(Processor.regA3)
+					       );
+		    processor.writeRegister(Processor.regV0, result);
+		    processor.advancePC();
+		    break;				       
+					       
+		default:
+		    Lib.debug(dbgProcess, "Unexpected exception: " +
+			      Processor.exceptionNames[cause]);
+		    Lib.assertNotReached("Unexpected exception");
+		}
     }
 
     /** The program being run by this process. */
