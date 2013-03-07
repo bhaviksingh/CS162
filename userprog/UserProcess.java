@@ -220,17 +220,66 @@ public class UserProcess {
      */
     public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+		
+		// if the virtual address given is out of range, just return 0 because it is invalid
+		if (vaddr < 0 || (length > Machine.processor().makeAddress(numPages - 1, pageSize - 1) - vaddr)) {
+			return 0;
+		}
 	
 		byte[] memory = Machine.processor().getMemory();
 		
+		int numBytesTransferred = 0;
+		
+		// get the starting and ending virtual pages
+		// starting = vaddr (since it's first byte of virtual memory to read)
+		// ending = vaddr + length (first byte to read + number of bytes total to read)
+		int startVP = Machine.processor().pageFromAddress(vaddr);
+		int endVP = Machine.processor().pageFromAddress(vaddr + length);
+		
+		// variables we'll use later in our iterations
+		int writeLength = 0; // how much read in this iteration
+		int currentPhysAddr = 0; // physical addr of current page this iteration
+		int currentOffset = 0; // offset for current page this iteration
+		
+		try {
+			for(int i = startVP; i < endVP; i++) {
+				// if this page isn't valid or is read-only, just break the loop
+				if(!pageTable[i].valid || pageTable[i].readOnly) {
+					break;
+				}
+				
+				// get the current physical address of current page given the initial offset
+				currentPhysAddr = Machine.processor().makeAddress(i, offset);
+				
+				// get the current offset using the virtual address of current page
+				currentOffset = Machine.processor().offsetFromAddress(i * pageSize);
+				
+				// get the number of bytes read from this page for this iteration
+				// (will either be length or the entire page minus its offset, 
+				// depending on which is smaller)
+				writeLength = Math.min(length, pageSize - currentOffset);
+				
+				// copy data --> memory 
+				System.arraycopy(data, offset + numBytesTransferred,  memory,  currentPhysAddr,  writeLength);
+				
+				// update how many bytes we transferred
+				numBytesTransferred += writeLength;
+			}
+			
+			return numBytesTransferred;
+		}
+		catch(Exception e) {
+			return numBytesTransferred;
+		}
+		
 		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
+		/*if (vaddr < 0 || vaddr >= memory.length)
 		    return 0;
 	
 		int amount = Math.min(length, memory.length-vaddr);
 		System.arraycopy(data, offset, memory, vaddr, amount);
 	
-		return amount;
+		return amount;*/
     }
 
     /**
@@ -244,81 +293,81 @@ public class UserProcess {
      * @return	<tt>true</tt> if the executable was successfully loaded.
      */
     private boolean load(String name, String[] args) {
-	Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
+		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
+		
+		OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
+		if (executable == null) {
+		    Lib.debug(dbgProcess, "\topen failed");
+		    return false;
+		}
 	
-	OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
-	if (executable == null) {
-	    Lib.debug(dbgProcess, "\topen failed");
-	    return false;
-	}
-
-	try {
-	    coff = new Coff(executable);
-	}
-	catch (EOFException e) {
-	    executable.close();
-	    Lib.debug(dbgProcess, "\tcoff load failed");
-	    return false;
-	}
-
-	// make sure the sections are contiguous and start at page 0
-	numPages = 0;
-	for (int s=0; s<coff.getNumSections(); s++) {
-	    CoffSection section = coff.getSection(s);
-	    if (section.getFirstVPN() != numPages) {
-		coff.close();
-		Lib.debug(dbgProcess, "\tfragmented executable");
-		return false;
-	    }
-	    numPages += section.getLength();
-	}
-
-	// make sure the argv array will fit in one page
-	byte[][] argv = new byte[args.length][];
-	int argsSize = 0;
-	for (int i=0; i<args.length; i++) {
-	    argv[i] = args[i].getBytes();
-	    // 4 bytes for argv[] pointer; then string plus one for null byte
-	    argsSize += 4 + argv[i].length + 1;
-	}
-	if (argsSize > pageSize) {
-	    coff.close();
-	    Lib.debug(dbgProcess, "\targuments too long");
-	    return false;
-	}
-
-	// program counter initially points at the program entry point
-	initialPC = coff.getEntryPoint();	
-
-	// next comes the stack; stack pointer initially points to top of it
-	numPages += stackPages;
-	initialSP = numPages*pageSize;
-
-	// and finally reserve 1 page for arguments
-	numPages++;
-
-	if (!loadSections())
-	    return false;
-
-	// store arguments in last page
-	int entryOffset = (numPages-1)*pageSize;
-	int stringOffset = entryOffset + args.length*4;
-
-	this.argc = args.length;
-	this.argv = entryOffset;
+		try {
+		    coff = new Coff(executable);
+		}
+		catch (EOFException e) {
+		    executable.close();
+		    Lib.debug(dbgProcess, "\tcoff load failed");
+		    return false;
+		}
 	
-	for (int i=0; i<argv.length; i++) {
-	    byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
-	    Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
-	    entryOffset += 4;
-	    Lib.assertTrue(writeVirtualMemory(stringOffset, argv[i]) ==
-		       argv[i].length);
-	    stringOffset += argv[i].length;
-	    Lib.assertTrue(writeVirtualMemory(stringOffset,new byte[] { 0 }) == 1);
-	    stringOffset += 1;
-	}
-
-	return true;
+		// make sure the sections are contiguous and start at page 0
+		numPages = 0;
+		for (int s=0; s<coff.getNumSections(); s++) {
+		    CoffSection section = coff.getSection(s);
+		    if (section.getFirstVPN() != numPages) {
+			coff.close();
+			Lib.debug(dbgProcess, "\tfragmented executable");
+			return false;
+		    }
+		    numPages += section.getLength();
+		}
+	
+		// make sure the argv array will fit in one page
+		byte[][] argv = new byte[args.length][];
+		int argsSize = 0;
+		for (int i=0; i<args.length; i++) {
+		    argv[i] = args[i].getBytes();
+		    // 4 bytes for argv[] pointer; then string plus one for null byte
+		    argsSize += 4 + argv[i].length + 1;
+		}
+		if (argsSize > pageSize) {
+		    coff.close();
+		    Lib.debug(dbgProcess, "\targuments too long");
+		    return false;
+		}
+	
+		// program counter initially points at the program entry point
+		initialPC = coff.getEntryPoint();	
+	
+		// next comes the stack; stack pointer initially points to top of it
+		numPages += stackPages;
+		initialSP = numPages*pageSize;
+	
+		// and finally reserve 1 page for arguments
+		numPages++;
+	
+		if (!loadSections())
+		    return false;
+	
+		// store arguments in last page
+		int entryOffset = (numPages-1)*pageSize;
+		int stringOffset = entryOffset + args.length*4;
+	
+		this.argc = args.length;
+		this.argv = entryOffset;
+		
+		for (int i=0; i<argv.length; i++) {
+		    byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
+		    Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
+		    entryOffset += 4;
+		    Lib.assertTrue(writeVirtualMemory(stringOffset, argv[i]) ==
+			       argv[i].length);
+		    stringOffset += argv[i].length;
+		    Lib.assertTrue(writeVirtualMemory(stringOffset,new byte[] { 0 }) == 1);
+		    stringOffset += 1;
+		}
+	
+		return true;
     }
 
     /**
@@ -334,6 +383,18 @@ public class UserProcess {
 		    Lib.debug(dbgProcess, "\tinsufficient physical memory");
 		    return false;
 		}
+		
+		UserKernel.pageListLock.acquire();
+		
+		// create this user process's page table
+		pageTable = new TranslationEntry[numPages];
+		
+		// populate this user process's page table
+		for(int i = 0; i < numPages; i++) {
+			pageTable[i] = new TranslationEntry(i, UserKernel.freePages.poll(), true, false, false, false);
+		}
+		
+		UserKernel.pageListLock.release();
 
 		// load sections
 		for (int s=0; s<coff.getNumSections(); s++) {
@@ -356,6 +417,27 @@ public class UserProcess {
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
     protected void unloadSections() {
+    	byte[] memory = Machine.processor().getMemory();
+    	int start = 0;
+    	int end = 0;
+    	
+    	UserKernel.pageListLock.acquire();
+    	
+    	for(int i = 0; i < numPages; i++) {
+    		// clear its memory using its physical address (physical page 
+    		// number * page size) as starting point until the next page as 
+    		// ending point
+    		start = pageTable[i].ppn * pageSize; 
+    		end = (pageTable[i].ppn + 1) * pageSize;    		
+    		for(int j = start; j < end; j++) {
+    			memory[j] = 0; // clear this spot in memory
+    		}
+    		
+    		// re-add this page to the list of available pages
+    		UserKernel.freePages.add(new Integer(pageTable[i].ppn));
+    	}
+    	
+    	UserKernel.pageListLock.release();
     }    
 
     /**

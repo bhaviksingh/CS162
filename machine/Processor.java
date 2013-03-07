@@ -235,7 +235,7 @@ public final class Processor {
      * @return	the main memory array.
      */
     public byte[] getMemory() {
-	return mainMemory;
+    	return mainMemory;
     }
 
     /**
