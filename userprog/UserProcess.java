@@ -145,9 +145,9 @@ public class UserProcess {
 		int startVPN = Machine.processor().pageFromAddress(vaddr); // starting = vaddr (first byte of virtual memory to read)
 		int endVPN = Machine.processor().pageFromAddress(vaddr + length); // ending = vaddr + length (first byte to read + number of bytes total to read)			
 		int readOffset = Machine.processor().offsetFromAddress(vaddr);
-		int readLength = 0;
+		int readLength = 0; // how much we read
 		int startingPhysAddr = 0; // starting physical addr in memory of what we are reading
-		int endyingPhysAddr = 0;		
+		int endyingPhysAddr = 0; // ending physical addr in memory of what we are reading	
 		
 		try {
 			TranslationEntry currentPage;
@@ -171,13 +171,15 @@ public class UserProcess {
 				// check the range of the starting physical address to make sure it's valid
 				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
 					endyingPhysAddr = (currentPage.ppn + 1) * pageSize;					
-					readLength = Math.max(readLength, memory.length - startingPhysAddr); // we want to read as much as possible		
+					readLength = Math.min(readLength, memory.length - startingPhysAddr); // we want to read as much as possible		
 					
 					// copy memory --> data
 					System.arraycopy(memory, startingPhysAddr, data, offset + numBytesTransferred, readLength);
 					
 					numBytesTransferred += readLength;
 					
+					// mark as used
+					currentPage.used = true;													
 				}							
 			}		
 			return numBytesTransferred;
@@ -226,49 +228,51 @@ public class UserProcess {
     public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 		
-		// if the virtual address given is out of range, just return 0 because it is invalid
-		if (vaddr < 0 || (length > Machine.processor().makeAddress(numPages - 1, pageSize - 1) - vaddr)) {
+		// if the given virtual address is out of range, just return 0 because it is invalid
+		if (notInValidRange(vaddr, length)) {
 			return 0;
 		}
 	
-		byte[] memory = Machine.processor().getMemory();
-		
+		byte[] memory = Machine.processor().getMemory();		
 		int numBytesTransferred = 0;
-		
-		// get the starting and ending virtual pages
-		// starting = vaddr (since it's first byte of virtual memory to read)
-		// ending = vaddr + length (first byte to read + number of bytes total to read)
-		int startVP = Machine.processor().pageFromAddress(vaddr);
-		int endVP = Machine.processor().pageFromAddress(vaddr + length);
-		
-		// variables we'll use later in our iterations
-		int writeLength = 0; // how much read in this iteration
-		int currentPhysAddr = 0; // physical addr of current page this iteration
-		int currentOffset = 0; // offset for current page this iteration
+		int startVP = Machine.processor().pageFromAddress(vaddr); //starting = vaddr (since it's first byte of virtual memory to read)
+		int endVP = Machine.processor().pageFromAddress(vaddr + length); //ending = vaddr + length (first byte to read + number of bytes total to read)
+		int writeOffset = Machine.processor().offsetFromAddress(vaddr); 
+		int writeLength = 0; // how much we wrote
+		int startingPhysAddr = 0; // starting physical addr in memory of where we are writing to
+		int endingPhysAddr = 0; // ending physical addr in memory of where we are writing to
 		
 		try {
+			TranslationEntry currentPage;
 			for(int i = startVP; i < endVP; i++) {
+				currentPage = pageTable[i];
+				
 				// if this page isn't valid or is read-only, just break the loop
-				if(!pageTable[i].valid || pageTable[i].readOnly) {
+				if(!currentPage.valid || currentPage.readOnly) {
 					break;
 				}
 				
-				// get the current physical address of current page given the initial offset
-				currentPhysAddr = Machine.processor().makeAddress(i, offset);
+				// get the starting physical addr
+				startingPhysAddr = (currentPage.ppn * pageSize) + writeOffset;
+								
+				// get the number of bytes to write
+				// we can write up to either the length given or the entire
+				// page minus its offset, depending on which is smaller
+				writeLength = Math.min(length, pageSize - writeOffset);
 				
-				// get the current offset using the virtual address of current page
-				currentOffset = Machine.processor().offsetFromAddress(i * pageSize);
-				
-				// get the number of bytes read from this page for this iteration
-				// (will either be length or the entire page minus its offset, 
-				// depending on which is smaller)
-				writeLength = Math.min(length, pageSize - currentOffset);
-				
-				// copy data --> memory 
-				System.arraycopy(data, offset + numBytesTransferred,  memory,  currentPhysAddr,  writeLength);
-				
-				// update how many bytes we transferred
-				numBytesTransferred += writeLength;
+				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
+					endingPhysAddr = (currentPage.ppn + 1) * pageSize;			
+					writeLength = Math.min(writeLength, memory.length - startingPhysAddr); // we want to write as much as possible
+					
+					// copy data --> memory 
+					System.arraycopy(data, offset + numBytesTransferred,  memory,  startingPhysAddr,  writeLength);
+					
+					numBytesTransferred += writeLength;
+					
+					// mark as used and dirty
+					currentPage.used = true;
+					currentPage.dirty = true;
+				}							
 			}
 			
 			return numBytesTransferred;
