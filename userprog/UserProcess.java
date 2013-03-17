@@ -413,9 +413,14 @@ public class UserProcess {
 
 			TranslationEntry COFFTranslationEntry;			
 			for (int i=0; i<section.getLength(); i++) {
+				// get corresponding COFF Translation based on VPN
 		    	int vpn = section.getFirstVPN()+i;
-		    	COFFTranslationEntry = pageTable[vpn];		    	
+		    	COFFTranslationEntry = pageTable[vpn];		
+		    	
+		    	// cannot assume vpn = ppn anymore
 		    	section.loadPage(i, COFFTranslationEntry.ppn);
+		    	
+		    	// check if read-only sections and mark appropriately
 		    	if(section.isReadOnly()) {
 		    		COFFTranslationEntry.readOnly = true;
 		    	}				
@@ -430,8 +435,8 @@ public class UserProcess {
      */
     protected void unloadSections() {
     	byte[] memory = Machine.processor().getMemory();
-    	int start = 0;
-    	int end = 0;
+    	int startingPhysAddr = 0; // starting physical addr of what we are going to unload
+    	int endingPhysAddr = 0; // ending physical addr of what we are going to unload
     	
     	UserKernel.freePagesLock.acquire();
     	
@@ -439,9 +444,9 @@ public class UserProcess {
     		// clear its memory using its physical address (physical page 
     		// number * page size) as starting point until the next page as 
     		// ending point
-    		start = pageTable[i].ppn * pageSize; 
-    		end = (pageTable[i].ppn + 1) * pageSize;    		
-    		for(int j = start; j < end; j++) {
+    		startingPhysAddr = pageTable[i].ppn * pageSize; 
+    		endingPhysAddr = (pageTable[i].ppn + 1) * pageSize;    		
+    		for(int j = startingPhysAddr; j < endingPhysAddr; j++) {
     			memory[j] = 0; // clear this spot in memory
     		}
     		
