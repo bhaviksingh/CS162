@@ -71,6 +71,11 @@ public class UserProcess {
     public void restoreState() {
     	Machine.processor().setPageTable(pageTable);
     }
+    
+    public boolean notInValidRange(int vaddr, int length) {
+    	return (vaddr < 0 || length > Machine.processor().makeAddress(numPages - 1, pageSize - 1) - vaddr);
+    	
+    }
 
     /**
      * Read a null-terminated string from this process's virtual memory. Read
@@ -130,51 +135,51 @@ public class UserProcess {
     public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 		
-		// if the virtual address given is out of range, just return 0 because it is invalid
-		if (vaddr < 0 || (length > Machine.processor().makeAddress(numPages - 1, pageSize - 1) - vaddr)) {
+		// if the given virtual address is out of range, just return 0 because it is invalid
+		if (notInValidRange(vaddr, length)) {
 			return 0;
 		}		
 	
-		byte[] memory = Machine.processor().getMemory();
-		
-		int numBytesTransferred = 0;
-		
-		// get the starting and ending virtual pages
-		// starting = vaddr (since it's first byte of virtual memory to read)
-		// ending = vaddr + length (first byte to read + number of bytes total to read)
-		int startVP = Machine.processor().pageFromAddress(vaddr);
-		int endVP = Machine.processor().pageFromAddress(vaddr + length);
-		
-		// variables we'll use later in our iterations
-		int readLength = 0; // how much read in this iteration
-		int currentPhysAddr = 0; // physical addr of current page this iteration
-		int currentOffset = 0; // offset for current page this iteration
+		byte[] memory = Machine.processor().getMemory();		
+		int numBytesTransferred = 0;					
+		int startVPN = Machine.processor().pageFromAddress(vaddr); // starting = vaddr (first byte of virtual memory to read)
+		int endVPN = Machine.processor().pageFromAddress(vaddr + length); // ending = vaddr + length (first byte to read + number of bytes total to read)			
+		int readOffset = Machine.processor().offsetFromAddress(vaddr);
+		int readLength = 0;
+		int startingPhysAddr = 0; // starting physical addr in memory of what we are reading
+		int endyingPhysAddr = 0;		
 		
 		try {
-			for(int i = startVP; i < endVP; i++) {
+			TranslationEntry currentPage;
+			for(int i = startVPN; i <= endVPN; i++) {
+				// get the current page from pageTable
+				currentPage = pageTable[i];
+								
 				// if this page isn't valid, just break the loop
 				if(!pageTable[i].valid) {
 					break;
 				}
 				
-				// get the current physical address of current page given the initial offset
-				currentPhysAddr = Machine.processor().makeAddress(i, offset);
+				// get the starting physical address
+				startingPhysAddr = (pageTable[i].ppn * pageSize) + offset;
 				
-				// get the current offset using the virtual address of current page
-				currentOffset = Machine.processor().offsetFromAddress(i * pageSize);
+				// get the number of bytes to read
+				// we can read up to either the length given or the entire
+				// page minus its offset, depending on which is smaller
+				readLength = Math.min(length, pageSize - readOffset);
 				
-				// get the number of bytes read from this page for this iteration
-				// (will either be length or the entire page minus its offset, 
-				// depending on which is smaller)
-				readLength = Math.min(length, pageSize - currentOffset);
-				
-				// copy memory --> data 
-				System.arraycopy(memory, currentPhysAddr,  data,  offset + numBytesTransferred,  readLength);
-				
-				// update how many bytes we transferred
-				numBytesTransferred += readLength;
-			}
-			
+				// check the range of the starting physical address to make sure it's valid
+				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
+					endyingPhysAddr = (currentPage.ppn + 1) * pageSize;					
+					readLength = Math.max(readLength, memory.length - startingPhysAddr); // we want to read as much as possible		
+					
+					// copy memory --> data
+					System.arraycopy(memory, startingPhysAddr, data, offset + numBytesTransferred, readLength);
+					
+					numBytesTransferred += readLength;
+					
+				}							
+			}		
 			return numBytesTransferred;
 		}
 		catch(Exception e) {
@@ -384,7 +389,7 @@ public class UserProcess {
 		    return false;
 		}
 		
-		UserKernel.pageListLock.acquire();
+		UserKernel.freePagesLock.acquire();
 		
 		// create this user process's page table
 		pageTable = new TranslationEntry[numPages];
@@ -394,19 +399,22 @@ public class UserProcess {
 			pageTable[i] = new TranslationEntry(i, UserKernel.freePages.poll(), true, false, false, false);
 		}
 		
-		UserKernel.pageListLock.release();
+		UserKernel.freePagesLock.release();
 
-		// load sections
+		// load sections (slightly modified this but most of it was provided)
 		for (int s=0; s<coff.getNumSections(); s++) {
 			CoffSection section = coff.getSection(s);
 	    
 			Lib.debug(dbgProcess, "\tinitializing " + section.getName() + " section (" + section.getLength() + " pages)");
 
+			TranslationEntry COFFTranslationEntry;			
 			for (int i=0; i<section.getLength(); i++) {
 		    	int vpn = section.getFirstVPN()+i;
-	
-				// for now, just assume virtual addresses=physical addresses
-				section.loadPage(i, vpn);
+		    	COFFTranslationEntry = pageTable[vpn];		    	
+		    	section.loadPage(i, COFFTranslationEntry.ppn);
+		    	if(section.isReadOnly()) {
+		    		COFFTranslationEntry.readOnly = true;
+		    	}				
 	    	}
 		}
 	
@@ -421,7 +429,7 @@ public class UserProcess {
     	int start = 0;
     	int end = 0;
     	
-    	UserKernel.pageListLock.acquire();
+    	UserKernel.freePagesLock.acquire();
     	
     	for(int i = 0; i < numPages; i++) {
     		// clear its memory using its physical address (physical page 
@@ -437,7 +445,7 @@ public class UserProcess {
     		UserKernel.freePages.add(new Integer(pageTable[i].ppn));
     	}
     	
-    	UserKernel.pageListLock.release();
+    	UserKernel.freePagesLock.release();
     }    
 
     /**

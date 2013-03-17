@@ -29,17 +29,17 @@ public class UserKernel extends ThreadedKernel {
 			public void run() { exceptionHandler(); }
 		});		
 		
-		// create global LL of pages 
+		// create global Linked List of available physical pages 
 		freePages = new LinkedList<Integer>();
 		
-		// populate this LL of pages 
+		// populate this Linked List of pages 
 		int numPhysPages = Machine.processor().getNumPhysPages();
 		for(int i = 0; i < numPhysPages; i++) {
 			freePages.add(new Integer(i));
 		}
 		
-		// create lock for synchronization purposes when accessing this LL of pages
-		pageListLock = new Lock();
+		// create lock to prevent synchronization conflicts
+		freePagesLock = new Lock();
     }
 
     /**
@@ -126,9 +126,9 @@ public class UserKernel extends ThreadedKernel {
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
     
-    // linked list of free (available) physical page IDs
+    // linked list of free available physical pages
     public static LinkedList<Integer> freePages;
     
-    // lock for synchronization when accessing list of free pages
-    public static Lock pageListLock;
+    // lock for synchronization when accessing freePages
+    public static Lock freePagesLock;
 }
