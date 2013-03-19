@@ -65,6 +65,7 @@ public class PriorityScheduler extends Scheduler {
 	Lib.assertTrue(priority >= priorityMinimum &&
 		   priority <= priorityMaximum);
 	
+	
 	getThreadState(thread).setPriority(priority);
     }
 
@@ -97,7 +98,10 @@ public class PriorityScheduler extends Scheduler {
 	Machine.interrupt().restore(intStatus);
 	return true;
     }
-
+    
+    //THESE ARE THE WRONG VALUES FOR PRIORITY SCHEDULER (1,0,7) is what is should be 
+    //THESE ARE THE LOTTERY SCHEDULER VALUES
+    //IDK HOW TO MAKE IT WORK FOR BOTH 
     /**
      * The default priority for a new thread. Do not change this value.
      */
@@ -105,11 +109,11 @@ public class PriorityScheduler extends Scheduler {
     /**
      * The minimum priority that a thread can have. Do not change this value.
      */
-    public static final int priorityMinimum = 0;
+    public static final int priorityMinimum = 1;
     /**
      * The maximum priority that a thread can have. Do not change this value.
      */
-    public static final int priorityMaximum = 7;    
+    public static final int priorityMaximum = Integer.MAX_VALUE;    
 
     /**
      * Return the scheduling state of the specified thread.
@@ -177,7 +181,7 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public boolean transferPriority;
 		private java.util.PriorityQueue<ThreadState> orderedThreads = new java.util.PriorityQueue<ThreadState>(10, new ThreadComparator());
-		private ThreadState lockHolder = null;
+		protected ThreadState lockHolder = null;
 		
 		protected class ThreadComparator implements Comparator<ThreadState> {
 			@Override
@@ -196,6 +200,14 @@ public class PriorityScheduler extends Scheduler {
 					}
 				}
 			}
+		}
+
+		public void addState(ThreadState thread) {
+			this.orderedThreads.add(thread);
+		}
+		
+		public void removeState(ThreadState thread) {
+			this.orderedThreads.remove(thread);
 		}
 	}
 
@@ -246,7 +258,7 @@ public class PriorityScheduler extends Scheduler {
 		    return effectivePriority;
 		}
 		
-		private void updateEffectivePriority() {
+		protected void updateEffectivePriority() {
 			
 			//System.out.println("Updating priority for "+ this);
 			int tempPriority =  0; //start at an incredibly low number
@@ -271,8 +283,8 @@ public class PriorityScheduler extends Scheduler {
 				}
 				
  				if(this.waitingQueue != null) {
- 					waitingQueue.orderedThreads.remove(this);
- 					waitingQueue.orderedThreads.add(this);
+ 					waitingQueue.removeState(this);
+ 					waitingQueue.addState(this);
  				}
 
 				//if the queue im waiting on exists, propogate iff donation is on!
@@ -303,8 +315,8 @@ public class PriorityScheduler extends Scheduler {
 		    }
 		    
 			if(this.waitingQueue != null) {
-				waitingQueue.orderedThreads.remove(this);
-				waitingQueue.orderedThreads.add(this);
+				waitingQueue.removeState(this);
+				waitingQueue.addState(this);
 			}
 		    
 		    if(this.waitingQueue != null && this.waitingQueue.lockHolder != null) {
@@ -329,7 +341,7 @@ public class PriorityScheduler extends Scheduler {
 		    this.waitingQueue = waitQueue;
 		    this.waitingTime = System.currentTimeMillis();
 		  
-		    waitQueue.orderedThreads.add(this);
+		    waitQueue.addState(this);
 		    
 		    if (this.waitingQueue != null && this.waitingQueue.lockHolder != null){
 		    	this.waitingQueue.lockHolder.updateEffectivePriority();
@@ -355,7 +367,7 @@ public class PriorityScheduler extends Scheduler {
 		    if (this.waitingQueue == waitQueue){
 		    	this.waitingQueue = null;
 		    }
-		    waitQueue.orderedThreads.remove(this); //if i was on the wait queue, remove me
+		    waitQueue.removeState(this); //if i was on the wait queue, remove me
 		    waitQueue.lockHolder = this; //and set me to lockholder
 		    this.acquired.add(waitQueue);
 		    this.updateEffectivePriority();
@@ -364,7 +376,7 @@ public class PriorityScheduler extends Scheduler {
 		 * Helper function for acquired.
 		 * @param waitQueue will leave the function with no lockholder
 		 */
-		private void relinquish(PriorityQueue releasing){
+		protected void relinquish(PriorityQueue releasing){
 			this.effectivePriority = this.priority; //not sure about this tbh
 			this.acquired.remove(releasing);
 			releasing.lockHolder = null; //maybe this doesnt need to be there
@@ -383,10 +395,12 @@ public class PriorityScheduler extends Scheduler {
 		/** The priority of the associated thread. */
 		protected int priority;
 		
-		private int effectivePriority;
-		private PriorityQueue waitingQueue = null;
+		protected int effectivePriority;
+		protected PriorityQueue waitingQueue = null;
+		protected HashSet<PriorityQueue> acquired = new HashSet<PriorityQueue>();
+		
 		private long waitingTime = 0;
-		private HashSet<PriorityQueue> acquired = new HashSet<PriorityQueue>();
+		
     }
     
 
