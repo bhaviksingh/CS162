@@ -1014,6 +1014,6 @@ public class UserProcess {
     /** variable to create hierarchy for processes **/ 
     private UserProcess parent;
     private HashMap<Integer, childState> children = new HashMap<Integer, childState>();
-    protected Lock joinLock; 
-    protected Condition joinCondition;
+    protected Lock joinLock = new Lock(); 
+    protected Condition joinCondition = new Condition(joinLock);
 }
