@@ -840,7 +840,12 @@ public class UserProcess {
         	}
     	}
     	
-    	//TODO: DENNIS PLZ LOOP THROUGH ALL OPEN FILES AND CLOSE THEM PLZZZ
+    	//Loop through all open files and close them
+    	for (int i = 0; i < 16; i++) {
+    		if (isValidDescriptor(i)) {
+    			handleClose(i);
+    		}
+    	}
     	
     	for (childState child: children.values()){
     		if (child.isRunning()){
