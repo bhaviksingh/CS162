@@ -7,8 +7,8 @@
 
 int main(void){
 	int i = 0;
-	int file, closeFile, unlinkFile, writeFile, readFile;
-	char writeBuffer[BUFFSIZE], writeBuffer[BUFFSIZE], XLWriteBuffer[XLBUFFSIZE], XLReadBuffer[XLBUFFSIZE];
+	int file, closeFile, unlinkFile, writeFile, readFile, openFile;
+	char writeBuffer[BUFFSIZE], readBuffer[BUFFSIZE], XLWriteBuffer[XLBUFFSIZE], XLReadBuffer[XLBUFFSIZE];
 
 	/* [TEST SET ONE]
 	 * tests for the following syscalls: creat, close, unlink
