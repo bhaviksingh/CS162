@@ -90,7 +90,7 @@ int main(void){
 	// we should NOT be able to open the file anymore and read it
 	closeFile = close(file);
 	openFile = open("testFile2.txt");
-	if(closeFile == -1 || openDaFile != -1){
+	if(closeFile == -1 || openFile != -1){
 		printf("[ERROR] close failed or was able to open a file after it was closed");
 		return 1;
 	}
