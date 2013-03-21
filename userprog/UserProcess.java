@@ -775,19 +775,19 @@ public class UserProcess {
     	children.put(child.PID, childProcess);
     	child.execute(fileName, argumentList);
     	
-    	System.out.println("RETURNING pid " + child.PID);
+    	debug("RETURNING pid " + child.PID);
     	return child.PID;
     }
 
     private void debug(String string) {
-		if (true){
+		if (false){
 			System.out.println(string);
 		}
 		
 	}
 
 	private int handleJoin(int pid, int statusLocation){
-		System.out.println("JOIINING " + pid + " i am " + this.PID);
+		debug("JOIINING " + pid + " i am " + this.PID);
     	if (!isValidAddress(statusLocation)){
     		return -1;
     	}
@@ -808,7 +808,7 @@ public class UserProcess {
     		debug("CHILD WOKE me UP, proceeding");
     		child.process.joinLock.release();
     	}
-    	System.out.println("child is done so " + child.process + " stat " + child.exitStatus);
+    	debug("child is done so " + child.process + " stat " + child.exitStatus);
     	children.remove(pid);
     	int exit = child.exitStatus;
     	if (exit == Integer.MAX_VALUE){
@@ -824,13 +824,13 @@ public class UserProcess {
     	joinLock.acquire();
     	
     	if (this.children == null){
-    		System.out.println("this children is null");
+    		debug("this children is null");
     		return -1;
     	}
     	
     	//inform parent i'm exiting
     	if (this.parent!= null && this.parent.children != null){
-    		System.out.println("my pid is " + this.PID + " my parents children are " + this.parent.children);
+    		debug("my pid is " + this.PID + " my parents children are " + this.parent.children);
     		childState myState = this.parent.children.get(this.PID);
         	if (myState != null){
         		//Inform parent
