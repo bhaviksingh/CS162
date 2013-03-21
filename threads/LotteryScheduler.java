@@ -61,21 +61,29 @@ public class LotteryScheduler extends PriorityScheduler {
     protected class LotteryQueue extends PriorityScheduler.PriorityQueue {
     	
     	private LinkedList<ThreadState> lottery;
+    	private int lotteryCount;
 
 		public LotteryQueue(boolean transferPriority) {
 			super(transferPriority);
 			this.lottery = new LinkedList<ThreadState>();
 			this.lockHolder = null;
+			this.lotteryCount = 0;
 		}
 
 		@Override
 		public void addState(ThreadState thread){
+			lotteryCount += thread.effectivePriority;
 			lottery.push(thread);
 		}
 		
 		@Override
 		public void removeState(ThreadState thread){
-			lottery.remove(thread);
+			if (lottery.remove(thread)){
+				lotteryCount -= thread.effectivePriority;
+				if (lotteryCount < 0){
+					lotteryCount = 0;
+				}
+			}
 		}
 		
 		@Override
@@ -90,7 +98,10 @@ public class LotteryScheduler extends PriorityScheduler {
 		
 		@Override 
 		public ThreadState pickNextThread(){
-			int numTickets = getTotalTickets();
+
+			Lib.assertTrue(lotteryCount == getTotalTickets());
+			
+			int numTickets = lotteryCount;
 			int rand = (int) (1 + Math.random()*numTickets);
 			for (ThreadState t: lottery){
 				rand = rand - t.effectivePriority;
@@ -111,7 +122,7 @@ public class LotteryScheduler extends PriorityScheduler {
 		
 		@Override
 		public String toString(){
-			return "lottery is " + lottery + " acquired by " + lockHolder;
+			return "lott: " + lottery + "holder:" + lockHolder + " count: " + lotteryCount;
 		}
     	
     }
@@ -151,8 +162,17 @@ public class LotteryScheduler extends PriorityScheduler {
 				}
 			}
 			
-			if (sum != this.priority){
+			if (sum != this.effectivePriority){
+				if (waitingQueue != null){
+					waitingQueue.removeState(this);
+				}
+				
 				this.effectivePriority = sum;
+				
+				if(waitingQueue != null){
+					waitingQueue.addState(this);
+				}
+				
 				if (this.waitingQueue != null && this.waitingQueue.lockHolder != null){
 					this.waitingQueue.lockHolder.updateEffectivePriority();
 				}
@@ -198,6 +218,7 @@ public class LotteryScheduler extends PriorityScheduler {
     	
     	//propogation test
     	System.out.println("\n Propogation test");
+    	System.out.println("l1" + l1);
     	ThreadQueue l2 = ThreadedKernel.scheduler.newThreadQueue(true);
     	KThread a1 = new KThread();
     	a1.setName("a");
@@ -208,6 +229,8 @@ public class LotteryScheduler extends PriorityScheduler {
     	
     	ThreadedKernel.scheduler.setPriority(laterIncrease, 80);
     	System.out.println("set " + laterIncrease + " priority to 80, now we have \nl1: " + l1 + "\nl2: " + l2 );
+    	
+    	//TODO: Add some caching/counting tests!
     	
     	
     }

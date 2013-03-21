@@ -278,6 +278,10 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (this.effectivePriority != tempPriority){ 
 				
+				if (this.waitingQueue!= null){
+ 					waitingQueue.removeState(this);
+				}
+				
 				//if the priority is changed, it could be lowered, but never lower than the priority itself
 				if (tempPriority < this.priority) {
 					this.effectivePriority = this.priority; //so if tempPriority is 0, this is the case that gets called
@@ -286,7 +290,6 @@ public class PriorityScheduler extends Scheduler {
 				}
 				
  				if(this.waitingQueue != null) {
- 					waitingQueue.removeState(this);
  					waitingQueue.addState(this);
  				}
 
@@ -310,6 +313,9 @@ public class PriorityScheduler extends Scheduler {
 
 		    this.priority = priority;
 
+		    if (this.waitingQueue != null){
+				waitingQueue.removeState(this);
+		    }
 			
 		    if (this.priority > this.effectivePriority) {
 		    	this.effectivePriority = this.priority;
@@ -318,7 +324,6 @@ public class PriorityScheduler extends Scheduler {
 		    }
 		    
 			if(this.waitingQueue != null) {
-				waitingQueue.removeState(this);
 				waitingQueue.addState(this);
 			}
 		    
