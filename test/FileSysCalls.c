@@ -43,7 +43,7 @@ int main(void){
 
 	// testing write syscall; will attempt to write 64 bytes to the newly created test file then close it
 	for(i=0; i<64; i++){
-		writeBuffer[i] = ".";
+		writeBuffer[i] = i;
 	}
 	writeFile = write(file, writeBuffer, 64);
 	if(writeFile == -1){
@@ -101,7 +101,7 @@ int main(void){
 	 */
 	// testing large write
 	for(i=0; i<XLBUFFSIZE; i++) {
-		XLWriteBuffer[i] = '.';
+		XLWriteBuffer[i] = i;
 	}
 	file = creat("XLTestFile.txt");
 	if(file == -1){
