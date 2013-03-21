@@ -971,7 +971,7 @@ public class UserProcess {
     private class childState {
     	UserProcess process = null;
     	Integer exitStatus = null;
-    	boolean exited = false;
+    	boolean exited = true;
     	
     	childState(UserProcess p){
     		this.process = p;
@@ -986,7 +986,7 @@ public class UserProcess {
     		} else {
     			this.exitStatus = status;
     		}
-    		exited = true;
+    		exited = false;
     	}
     }
     
