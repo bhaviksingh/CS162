@@ -33,8 +33,8 @@ public class LotteryScheduler extends PriorityScheduler {
      * Allocate a new lottery scheduler.
      */
     public LotteryScheduler() {
+    	initDefaults(1,1, Integer.MAX_VALUE);
     }
-    
     
     @Override
     protected ThreadState getThreadState(KThread thread) {
