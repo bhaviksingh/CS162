@@ -171,7 +171,7 @@ public class UserProcess {
 				}
 				
 				// get the starting physical address
-				startingPhysAddr = (pageTable[i].ppn * pageSize) + offset;
+				startingPhysAddr = (pageTable[i].ppn * pageSize) + readOffset;
 				
 				// get the number of bytes to read
 				// we can read up to either the length given or the entire
