@@ -3,22 +3,18 @@
 #include "stdlib.h"
 
 #define BUFFSIZE 1024
-#define XLPAGESIZE 2560
-
-char buf1[PAGESIZE], buf2[PAGESIZE], buf3[XLPAGESIZE], buf4[XLPAGESIZE];
+#define XLBUFFSIZE 2560
 
 int main(void){
 	int i = 0;
 	int file;
-
-	//int writeFile, readFile, openFile;
 	char fileName[1000];
 
 	/* [TEST SET ONE]
 	 * tests for the following syscalls: creat, close, unlink
 	 */
 	int closeFile, unlinkFile;
-	for(i =0; i<20; i++){
+	for(i =0; i<15; i++){
 		// testing creat syscall; will attempt to create the test file 20 times
 		file = creat("testFile.txt");
 		if(file == -1){
@@ -37,10 +33,11 @@ int main(void){
 		unlinkFile = unlink(file);
 		if(unlinkFile == -1) {
 			printf("[ERROR] unlink failed for testFile.txt on %d-th attempt", i);
+			return 1;
 		}
 	}
 
-	/* [TEST SET ONE]
+	/* [TEST SET TWO]
 	 * tests for the following syscalls: read, write
 	 */
 	char writeBuffer[BUFFSIZE];
@@ -85,104 +82,69 @@ int main(void){
 		}
 	}
 
-	//Unlink while a source is accessing it (Pending for deletion)
-	unlinkDaFile = unlink("test2.txt");
-	if(unlinkDaFile == -1){
-		printf("ERROR: Couldn't unlink test2.txt");
-		return 1;
-	}
-	//Shouldn't be deleted because not yet closed
-	readDaFile = read(daFile,buf2,64);
-	if(readDaFile == -1){
-		printf("ERROR: Unlink deleted a file with a source still accessing it");
-		return 1;
-	}
-	//Close the source (Should be deleted after this)
-	closeDaFile = close(daFile);
-	if(closeDaFile == -1){
-		printf("ERROR: Close failed as last one referencing it");
-		return 1;
-	}
-	//Should fail to open
-	openDaFile = open("test2.txt");//this should not create the file
-	if(openDaFile != -1){
-		printf("ERROR: File should not exist anymore");
+	/* [TEST SET THREE]
+	 * testing misc edge cases
+	 */
+	// testing unlink while a file is still being accessed (not yet closed)
+	// this should NOT delete the file and we should still be able to read it
+	unlinkFile = unlink("testFile2.txt");
+	readFile = read(file, readBuffer, 64);
+	if(unlinkFile == -1 || readFile == -1){
+		printf("[ERROR] unlink failed or deleted a file before it was closed");
 		return 1;
 	}
 
+	// testing open while a file has already been closed
+	// we should NOT be able to open the file anymore and read it
+	closeFile = close(file);
+	openFile = open("testFile2.txt");
+	if(closeFile == -1 || openDaFile != -1){
+		printf("[ERROR] close failed or was able to open a file after it was closed");
+		return 1;
+	}
 
-	//Tests for large size Read & Write
-	for(i=0; i<bigsize; i++)
-		buf3[i] = 'x' + i;
-	daFile = creat("bigTest.txt");
-	if(daFile == -1){
-		printf("ERROR: Couldn't create file because too big");
+	/* [TEST SET FOUR]
+	 * testing large reads and writes
+	 */
+	char XLWriteBuffer[XLBUFFSIZE];
+	char XLReadBuffer[XLBUFFSIZE];
+	// testing large write
+	for(i=0; i<XLBUFFSIZE; i++) {
+		XLWriteBuffer[i] = '.';
+	}
+	file = creat("XLTestFile.txt");
+	if(file == -1){
+		printf("[ERROR] creat failed on XLTestFile.txt");
 		return 1;
 	}
-	writeDaFile = write(daFile, buf3, bigsize);
-	if(writeDaFile == -1){
-		printf("ERROR: Couldn't write big data");
+	writeFile = write(file, XLWriteBuffer, XLBUFFSIZE);
+	if(writeFile == -1){
+		printf("[ERROR] write failed for XLTestFile.txt");
 		return 1;
 	}
-	close(daFile);
-	daFile = open("bigTest.txt");
-	if(daFile == -1){
-	  printf("ERROR: Couldn't open file because too big");
+	close(file);
+
+	// testing large read
+	file = open("XLTestFile.txt");
+	if(file == -1){
+	  printf("[ERROR] open failed for XLTestFile.txt");
 	  return 1;
 	}
-	readDaFile = read(daFile, buf4, bigsize);
-	if(readDaFile == -1){
-		printf("ERROR: Couldn't read because too big");
+	readFile = read(file, XLReadBuffer, XLBUFFSIZE);
+	if(readFile == -1){
+		printf("[ERROR] read failed for XLTestFile.txt");
 		return 1;
 	}
-	for(i=0; i<bigsize; i++){
-		if (buf3[i] != buf4[i]) {
-			printf("ERROR: Wrong data read back for bigTest");
+
+	// comparing contents
+	for(i=0; i<XLBUFFSIZE; i++){
+		if (XLWriteBuffer[i] != XLReadBuffer[i]) {
+			printf("[ERROR] content written to XLTestFile.txt does not match content read from XLTestFile.txt; failed at %d-th byte", i);
 			return 1;
 		}
 	}
-	unlink("bigTest.txt");
-	close(daFile);
-
-
-	//Tests with bad input
-	//Checks for larger than 256 byte file names
-	for(i=0; i<1000; i++){
-		fileName[i]=i;
-	}
-	daFile = creat(fileName);
-	if(daFile != -1){
-		printf("ERROR: Filename exceeded 256");
-		return 1;
-	}
-	//More than 16 concurrent files
-	daFile = creat("fillEmUpTest.txt");
-	close(daFile);
-	for(i=0; i<15; i++){
-		openDaFile = open("fillEmUpTest.txt");
-		if(openDaFile == -1 && i <14){
-			printf("ERROR: Too many files in the FD: %d", i);
-			return 1;
-		}
-	}
-	for(i=2; i<16; i++){
-		close(i);
-	}
-
-
-	//Tests to close STDIN & STDOUT
-	closeDaFile = close(0);
-	if(closeDaFile == -1){
-		printf("ERROR: Couldn't close stdin");
-		return 1;
-	}
-	printf("Success! You are awesome Lewis");
-	closeDaFile = close(1);
-	if(closeDaFile == -1){
-		printf("ERROR: Couldn't close stdout");
-		return 1;
-	}
-
+	unlink("XLTestFile.txt");
+	close(file);
 
     return 1;
 }
