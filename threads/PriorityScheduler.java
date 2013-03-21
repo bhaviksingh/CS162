@@ -33,7 +33,26 @@ public class PriorityScheduler extends Scheduler {
      * Allocate a new priority scheduler.
      */
     public PriorityScheduler() {
+    	initDefaults(1,0,7);
     }
+    
+    protected static void initDefaults(int a, int b, int c){
+    	priorityDefault = a;
+    	priorityMinimum = b;
+    	priorityMaximum = c;
+    }
+    /**
+     * The default priority for a new thread. Do not change this value.
+     */
+    public static int priorityDefault ;
+    /**
+     * The minimum priority that a thread can have. Do not change this value.
+     */
+    public static int priorityMinimum ;
+    /**
+     * The maximum priority that a thread can have. Do not change this value.
+     */
+    public static int priorityMaximum ;   
     
     /**
      * Allocate a new priority thread queue.
@@ -98,22 +117,6 @@ public class PriorityScheduler extends Scheduler {
 	Machine.interrupt().restore(intStatus);
 	return true;
     }
-    
-    //THESE ARE THE WRONG VALUES FOR PRIORITY SCHEDULER (1,0,7) is what is should be 
-    //THESE ARE THE LOTTERY SCHEDULER VALUES
-    //IDK HOW TO MAKE IT WORK FOR BOTH 
-    /**
-     * The default priority for a new thread. Do not change this value.
-     */
-    public static final int priorityDefault = 1;
-    /**
-     * The minimum priority that a thread can have. Do not change this value.
-     */
-    public static final int priorityMinimum = 1;
-    /**
-     * The maximum priority that a thread can have. Do not change this value.
-     */
-    public static final int priorityMaximum = Integer.MAX_VALUE;    
 
     /**
      * Return the scheduling state of the specified thread.
@@ -275,6 +278,10 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (this.effectivePriority != tempPriority){ 
 				
+				if (this.waitingQueue!= null){
+ 					waitingQueue.removeState(this);
+				}
+				
 				//if the priority is changed, it could be lowered, but never lower than the priority itself
 				if (tempPriority < this.priority) {
 					this.effectivePriority = this.priority; //so if tempPriority is 0, this is the case that gets called
@@ -283,7 +290,6 @@ public class PriorityScheduler extends Scheduler {
 				}
 				
  				if(this.waitingQueue != null) {
- 					waitingQueue.removeState(this);
  					waitingQueue.addState(this);
  				}
 
@@ -307,6 +313,9 @@ public class PriorityScheduler extends Scheduler {
 
 		    this.priority = priority;
 
+		    if (this.waitingQueue != null){
+				waitingQueue.removeState(this);
+		    }
 			
 		    if (this.priority > this.effectivePriority) {
 		    	this.effectivePriority = this.priority;
@@ -315,7 +324,6 @@ public class PriorityScheduler extends Scheduler {
 		    }
 		    
 			if(this.waitingQueue != null) {
-				waitingQueue.removeState(this);
 				waitingQueue.addState(this);
 			}
 		    
