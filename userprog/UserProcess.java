@@ -823,17 +823,18 @@ public class UserProcess {
     	if (this.children == null){
     		return -1;
     	}
-    	//inform parent that I am exiting
-    	childState myState = this.parent.children.get(this.PID);
-    	if (myState == null){
-    		System.out.println("SOMETHING WENT BAD in join");
-    		return -1;
-    	}
     	
-      	//Set my exit status and "notify" parent
-    	this.parent.children.remove(this.PID);
-    	myState.exitWithStatus(status);
-    	this.parent.children.put(this.PID, myState);
+    	//inform parent i'm exiting
+    	if (this.parent!= null && this.parent.children != null){
+    		childState myState = this.parent.children.get(this.PID);
+        	if (myState == null){
+        		System.out.println("SOMETHING WENT BAD in join");
+        		return -1;
+        	}
+        	this.parent.children.remove(this.PID);
+        	myState.exitWithStatus(status);
+        	this.parent.children.put(this.PID, myState);
+    	}
     	
     	for (childState child: children.values()){
     		if (child.isRunning()){
