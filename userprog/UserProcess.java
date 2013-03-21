@@ -764,6 +764,7 @@ public class UserProcess {
     	}	
     	
     	//create and execute child
+    	
     	UserProcess child = newUserProcess();
     	child.parent = this;
     	childState childProcess = new childState(child);
@@ -813,6 +814,7 @@ public class UserProcess {
     	if (exit == Integer.MAX_VALUE){
     		return 0;
     	}
+
     	
 		writeVirtualMemory(statusLocation, Lib.bytesFromInt(exit));
 		return 1;
@@ -851,9 +853,12 @@ public class UserProcess {
     	joinCondition.wakeAll();
     	joinLock.release();
     	
-    	if (this.PID == 0){
+    	globalLock.acquire();
+    	totalPID --;
+    	if (totalPID == 0){
     		Kernel.kernel.terminate();
     	}
+    	globalLock.release();
     	
     	KThread.finish();
     	return 0;
@@ -970,19 +975,22 @@ public class UserProcess {
     private class childState {
     	UserProcess process = null;
     	Integer exitStatus = null;
+    	boolean exited = false;
+    	
     	childState(UserProcess p){
     		this.process = p;
     	}
     	boolean isRunning(){
-    		return this.process == null;
+    		return !exited;
     	}
     	void exitWithStatus(Integer status){
-    		this.process = null;
+    		
     		if (status == null){
     			this.exitStatus = Integer.MAX_VALUE;
     		} else {
     			this.exitStatus = status;
     		}
+    		exited = true;
     	}
     }
     
