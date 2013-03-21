@@ -196,16 +196,7 @@ public class UserProcess {
 		}
 		catch(Exception e) {
 			return numBytesTransferred;
-		}
-		
-		// for now, just assume that virtual addresses equal physical addresses
-		/*if (vaddr < 0 || vaddr >= memory.length)
-		    return 0;
-	
-		int amount = Math.min(length, memory.length-vaddr);
-		System.arraycopy(memory, vaddr, data, offset, amount);
-	
-		return amount;*/			
+		}			
     }
 
     /**
@@ -245,8 +236,8 @@ public class UserProcess {
 	
 		byte[] memory = Machine.processor().getMemory();		
 		int numBytesTransferred = 0;
-		int startVP = Machine.processor().pageFromAddress(vaddr); //starting = vaddr (since it's first byte of virtual memory to read)
-		int endVP = Machine.processor().pageFromAddress(vaddr + length); //ending = vaddr + length (first byte to read + number of bytes total to read)
+		int startVPN = Machine.processor().pageFromAddress(vaddr); //starting = vaddr (since it's first byte of virtual memory to read)
+		int endVPN = Machine.processor().pageFromAddress(vaddr + length); //ending = vaddr + length (first byte to read + number of bytes total to read)
 		int writeOffset = Machine.processor().offsetFromAddress(vaddr); 
 		int writeLength = 0; // how much we wrote
 		int startingPhysAddr = 0; // starting physical addr in memory of where we are writing to
@@ -254,7 +245,7 @@ public class UserProcess {
 		
 		try {
 			TranslationEntry currentPage;
-			for(int i = startVP; i < endVP; i++) {
+			for(int i = startVPN; i <= endVPN; i++) {
 				currentPage = pageTable[i];
 				
 				// if this page isn't valid or is read-only, just break the loop
