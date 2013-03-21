@@ -27,6 +27,15 @@ public class UserProcess {
 		pageTable = new TranslationEntry[numPhysPages];
 		for (int i=0; i<numPhysPages; i++)
 		    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+		
+		globalLock.acquire();
+		PID = nextPID++;
+		totalPID++;
+		globalLock.release();
+		
+		fileTable[0] = UserKernel.console.openForReading();
+		fileTable[1] = UserKernel.console.openForWriting();
+		
     }
     
     /**
@@ -479,15 +488,249 @@ public class UserProcess {
 		processor.writeRegister(Processor.regA0, argc);
 		processor.writeRegister(Processor.regA1, argv);
     }
+    
+    
+    /**
+     * Make sure VA is valid
+     * 
+     * @param Virtual Address vaddr
+     * @return True if valid VA, False if invalid VA
+     */
+    protected boolean isValidAddress(int vaddr) {
+    	int virtualPN = Processor.pageFromAddress(vaddr);
+    	return virtualPN < numPages && virtualPN >= 0;
+    }
+    
+    /**
+     * Finds a file descriptor location that is unused
+     * 
+     * @return Index of valid file descriptor or -1 if none exist.
+     */
+    protected int getDescriptor() {
+    	for (int i = 0; i < 16; i++) {
+    		if (fileTable[i] == null) {
+    			return i;
+    		}
+    	}
+    	return -1;
+    }
+    
+    /**
+     * Checks whether the file descriptor is valid
+     * 
+     * @param descIndex - file descriptor index in the fileTable 
+     * @return True if the descriptor exists
+     */
+    private boolean isValidDescriptor(int descIndex) {
+    	if (descIndex < 0 || descIndex >= 16) { //Array Range check
+    		return false;
+    	} else {
+    		return fileTable[descIndex] != null; //Valid Entry check
+    	}
+    }
 
     /**
      * Handle the halt() system call. 
      */
     private int handleHalt() {
-		Machine.halt();
-		
-		Lib.assertNotReached("Machine.halt() did not halt machine!");
-		return 0;
+    	if (PID != 0) { //Only root process can call halt
+    		return 0;
+    	} else {
+    		Machine.halt();
+    		Lib.assertNotReached("Machine.halt() did not halt machine!");
+    		return 0;		
+    	}
+    }
+    /**
+     * Handles the creat(filename) syscall
+     * 
+     * @param filePtr
+     * 			Pointer to the file name
+     * @return 
+     * 			Location of the file descriptor in fileTable
+     */
+    private int handleCreate(int filePtr) {
+    	return handleHelper(filePtr, true);
+    }
+    
+    /**
+     * Handles the open(filename) syscall.
+     * 
+     * @param filePtr 
+     * 			Pointer to the file name
+     * @return
+     * 			Location of the file descriptor in fileTable
+     */
+    private int handleOpen(int filePtr) {
+    	return handleHelper(filePtr, false);
+    }
+    
+    /**
+     * 
+     * 
+     * @param filePtr
+     * 			Pointer to the file name
+     * @param flag
+     * 			Flag determining if its a creat or open call
+     * @return
+     * 			Location of the file descriptor in fileTable
+     */
+    private int handleHelper(int filePtr, boolean flag) {
+    	if (!isValidAddress(filePtr)) {
+    		return -1;
+    	}
+    	int openDesc = getDescriptor();
+    	
+    	if (openDesc < 0) { //Already have 16 files open
+    		return -1;
+    	}
+    	
+    	String fileName = readVirtualMemoryString(filePtr, 256);
+    	OpenFile newFile = UserKernel.fileSystem.open(fileName, flag);
+    	
+    	if (newFile == null) { //Cannot open file
+    		return -1;
+    	}
+    	
+    	fileTable[openDesc] = newFile;
+    	
+    	return openDesc;
+    }
+    /**
+     * Read from an open file into the buffer
+     * 
+     * @param fileNo
+     * 			Location in fileTable
+     * @param bufferPtr
+     * 			Pointer to the buffer in VM
+     * @param numOfBytes
+     * 			How many bytes to write
+     * @return
+     * 			Total bytes read, -1 on error
+     */
+    private int handleRead(int fileNo, int bufferPtr, int numOfBytes) {
+    	if ((!isValidDescriptor(fileNo)) || (!isValidAddress(bufferPtr))) {
+    		return -1;
+    	}
+    	
+    	int bytesLeft = numOfBytes;
+    	int bytesRead = 0;
+    	int readSize = 0;
+    	
+    	while (bytesLeft != 0) {
+    		if (bytesLeft >= pageSize) {
+    			readSize = pageSize;
+    		} else {
+    			readSize = bytesLeft;
+    		}
+    		
+    		byte[] buffer = new byte[readSize];
+    		int nextRead = fileTable[fileNo].read(buffer, 0, readSize);
+    		
+    		if (nextRead == -1) {
+    			return -1;
+    		}
+    		
+    		int nextWrite = writeVirtualMemory(bufferPtr, buffer, 0, nextRead);
+    		
+    		if (nextRead != nextWrite) {
+    			return -1;
+    		}
+    		
+    		bytesLeft -= readSize;
+    		bytesRead += nextWrite;
+    		bufferPtr += nextWrite;
+    	}
+    	
+    	return bytesRead;
+    	
+    }
+    
+    /**
+     * Write from buffer into an open file
+     * 
+     * @param fileNo
+     * 			Location in fileTable
+     * @param bufferPtr
+     * 			Pointer to the buffer in VM
+     * @param numOfBytes
+     * 			How many bytes to write
+     * @return
+     * 			Total bytes written, -1 on error
+     */
+    private int handleWrite(int fileNo, int bufferPtr, int numOfBytes) {
+    	if ((!isValidDescriptor(fileNo)) || (!isValidAddress(bufferPtr))) {
+    		return -1;
+    	}
+    	
+    	int bytesLeft = numOfBytes;
+    	int bytesWritten = 0;
+    	int readSize = 0;
+    	
+    	while (bytesLeft != 0) {
+    		if (bytesLeft >= pageSize) {
+    			readSize = pageSize;
+    		} else {
+    			readSize = bytesLeft;
+    		}
+    		
+    		byte[] buffer = new byte[readSize];
+    		int nextRead = readVirtualMemory(bufferPtr, buffer, 0, readSize);
+    		
+    		if (nextRead != readSize) {
+    			return -1;
+    		}
+    		
+    		int nextWrite = fileTable[fileNo].write(buffer, 0,  readSize);
+    		if (nextWrite != nextRead) {
+    			return -1;
+    		}
+    		
+    		bytesLeft -= readSize;
+    		bytesWritten += nextRead;
+    		bufferPtr += nextRead;
+    	}
+    	
+    	return bytesWritten;
+    }
+    
+    /**
+     * Closes a file in fileTable and frees its space for new files
+     * 
+     * @param fileNo
+     * 			Index of the file
+     * @return
+     * 			0 on success, -1 on failure
+     */
+    private int handleClose(int fileNo) {
+    	if (!isValidDescriptor(fileNo)) {
+    		return -1;
+    	}
+    	fileTable[fileNo].close();
+    	fileTable[fileNo] = null;
+    	return 0;
+    }
+    
+    /**
+     * Marks file pending deletion
+     * 
+     * @param filePtr
+     * 			Pointer to string with file name
+     * @return
+     * 			0 on success, -1 on failure
+     */
+    private int handleUnlink(int filePtr) {
+    	if (!isValidAddress(filePtr)) {
+    		return -1;
+    	}
+    	String fileName = readVirtualMemoryString(filePtr, 256);
+    	
+    	if (UserKernel.fileSystem.remove(fileName)) {
+    		return 0;
+    	}
+    	
+    	return -1;
+
     }
 
 
@@ -573,6 +816,19 @@ public class UserProcess {
 		    Lib.assertNotReached("Unexpected exception");
 		}
     }
+    
+    /** Lock for our global variables */
+    private static Lock globalLock = new Lock();
+    
+    /** Process ID */
+    private static int totalPID;
+    private static int nextPID;
+    protected int PID;
+    
+    /** Array of file descriptors */
+    protected OpenFile[] fileTable = new OpenFile[16];
+    
+    
 
     /** The program being run by this process. */
     protected Coff coff;
