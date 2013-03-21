@@ -5,6 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.HashMap;
 
 /**
  * Encapsulates the state of a user process that is not contained in its
@@ -739,8 +740,119 @@ public class UserProcess {
     	return -1;
 
     }
+    
+    private int handleExec(int fileLocation, int numArgs, int argsLocation){
+    	if(!isValidAddress(fileLocation) || !isValidAddress(argsLocation)){
+    		return -1;
+    	}
+    	
+    	//get the filename
+    	String fileName = readVirtualMemoryString(fileLocation, 256);
+    	if (fileName == null || !fileName.endsWith(".coff")){
+    		return -1;
+    	}
+    	
+    	//Create byte array to store memory locations
+    	byte[] memArray = new byte[numArgs * 4];
+    	int readBytes = readVirtualMemory(argsLocation, memArray);
+    	if (readBytes != (numArgs * 4)){
+    		return -1;
+    	}
+    	
+    	String[] argumentList = new String[numArgs];
+    	
+    	for(int i = 0; i < numArgs ; i++){
+        	//Take each memory location, see its validity
+    		int memLoc = Lib.bytesToInt(memArray, i*4);
+    		if (!isValidAddress(memLoc)){
+    			return -1;
+    		}
+    		//get string from location
+    		String s = readVirtualMemoryString(memLoc, 256);
+    		if (s == null){
+    			return -1;
+    		}
+    		//put it in arglist array
+    		argumentList[i] = s;
+    	}	
+    	
+    	//create and execute child
+    	UserProcess child = newUserProcess();
+    	child.parent = this;
+    	childState childProcess = new childState(child);
+    	if (children == null){
+    		return -1;
+    	}
+    	children.put(child.PID, childProcess);
+    	child.execute(fileName, argumentList);
+    	
+    	return child.PID;
+    }
 
+    private int handleJoin(int pid, int statusLocation){
+    	if (!isValidAddress(statusLocation)){
+    		return -1;
+    	}
+    	if (children == null || !children.containsKey(pid)){
+    		return -1;
+    	}
+    	childState child = children.get(pid);
+    	if (child == null){
+    		return -1;
+    	}
+    	if (child.isRunning()){
+    		joinLock.acquire();
+    		while (!child.isRunning()){
+    			joinCondition.sleep();
+    		}
+    		joinLock.release();
+    	}
+    	children.remove(pid);
+    	int exit = child.exitStatus;
+    	if (exit == Integer.MAX_VALUE){
+    		return 0;
+    	}
+    	
+		writeVirtualMemory(statusLocation, Lib.bytesFromInt(exit));
+		return 1;
+    }
 
+    private int handleExit(Integer status){
+    	joinLock.acquire();
+    	
+    	if (this.children == null){
+    		return -1;
+    	}
+    	//inform parent that I am exiting
+    	childState myState = this.parent.children.get(this.PID);
+    	if (myState == null){
+    		System.out.println("SOMETHING WENT BAD in join");
+    		return -1;
+    	}
+    	
+    	//Set my exit status and "notify" parent
+    	this.parent.children.remove(this.PID);
+    	myState.exitWithStatus(status);
+    	this.parent.children.put(this.PID, myState);
+    
+    	for (childState child: children.values()){
+    		if (child.isRunning()){
+    			child.process.parent = null; //disown
+    		}
+    	}
+    	
+    	this.children = null;
+    	this.unloadSections();
+    	joinLock.release();
+    	
+    	if (this.PID == 0){
+    		Kernel.kernel.terminate();
+    	}
+    	
+    	KThread.finish();
+    	return 0;
+    	
+    }
     private static final int
         syscallHalt = 0,
 		syscallExit = 1,
@@ -805,6 +917,13 @@ public class UserProcess {
 		case syscallUnlink:
 			return handleUnlink(a0);
 	
+		case syscallExec:
+			return handleExec(a0, a1, a2);
+		case syscallJoin:
+			return handleJoin(a0, a1);
+		case syscallExit:
+			return handleExit(a0);
+			
 		default:
 		    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 		    Lib.assertNotReached("Unknown system call:" + syscall);
@@ -842,6 +961,25 @@ public class UserProcess {
 		}
     }
     
+    private class childState {
+    	UserProcess process = null;
+    	Integer exitStatus = null;
+    	childState(UserProcess process){
+    		this.process = process;
+    	}
+    	boolean isRunning(){
+    		return this.process == null;
+    	}
+    	void exitWithStatus(Integer exitStatus){
+    		this.process = null;
+    		if (exitStatus == null){
+    			this.exitStatus = Integer.MAX_VALUE;
+    		} else {
+    			this.exitStatus = exitStatus;
+    		}
+    	}
+    }
+    
     /** Lock for our global variables */
     private static Lock globalLock = new Lock();
     
@@ -871,4 +1009,10 @@ public class UserProcess {
 	
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+    
+    /** variable to create hierarchy for processes **/ 
+    private UserProcess parent;
+    private HashMap<Integer, childState> children = new HashMap<Integer, childState>();
+    protected Lock joinLock; 
+    protected Condition joinCondition;
 }
