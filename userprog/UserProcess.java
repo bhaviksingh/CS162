@@ -802,7 +802,7 @@ public class UserProcess {
     	}
     	if (child.isRunning()){
     		joinLock.acquire();
-    		while (!child.isRunning()){
+    		while (child.isRunning()){
     			joinCondition.sleep();
     		}
     		joinLock.release();
@@ -970,12 +970,12 @@ public class UserProcess {
     	boolean isRunning(){
     		return this.process == null;
     	}
-    	void exitWithStatus(Integer exitStatus){
+    	void exitWithStatus(Integer status){
     		this.process = null;
-    		if (exitStatus == null){
+    		if (status == null){
     			this.exitStatus = Integer.MAX_VALUE;
     		} else {
-    			this.exitStatus = exitStatus;
+    			this.exitStatus = status;
     		}
     	}
     }
