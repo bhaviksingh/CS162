@@ -764,6 +764,7 @@ public class UserProcess {
     	}	
     	
     	//create and execute child
+    	
     	UserProcess child = newUserProcess();
     	child.parent = this;
     	childState childProcess = new childState(child);
@@ -974,13 +975,13 @@ public class UserProcess {
     private class childState {
     	UserProcess process = null;
     	Integer exitStatus = null;
-    	boolean exited = true;
+    	boolean exited = false;
     	
     	childState(UserProcess p){
     		this.process = p;
     	}
     	boolean isRunning(){
-    		return exited;
+    		return !exited;
     	}
     	void exitWithStatus(Integer status){
     		
@@ -989,7 +990,7 @@ public class UserProcess {
     		} else {
     			this.exitStatus = status;
     		}
-    		exited = false;
+    		exited = true;
     	}
     }
     
