@@ -281,15 +281,6 @@ public class UserProcess {
 		catch(Exception e) {
 			return numBytesTransferred;
 		}
-		
-		// for now, just assume that virtual addresses equal physical addresses
-		/*if (vaddr < 0 || vaddr >= memory.length)
-		    return 0;
-	
-		int amount = Math.min(length, memory.length-vaddr);
-		System.arraycopy(data, offset, memory, vaddr, amount);
-	
-		return amount;*/
     }
 
     /**
