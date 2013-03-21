@@ -734,12 +734,14 @@ public class UserProcess {
     
     private int handleExec(int fileLocation, int numArgs, int argsLocation){
     	if(!isValidAddress(fileLocation) || !isValidAddress(argsLocation)){
+    		debug("invalid add returning -1");
     		return -1;
     	}
     	
     	//get the filename
     	String fileName = readVirtualMemoryString(fileLocation, 256);
     	if (fileName == null || !fileName.endsWith(".coff")){
+    		debug("invalid filename returning -1");
     		return -1;
     	}
     	
@@ -747,6 +749,7 @@ public class UserProcess {
     	byte[] memArray = new byte[numArgs * 4];
     	int readBytes = readVirtualMemory(argsLocation, memArray);
     	if (readBytes != (numArgs * 4)){
+    		debug("-1: Read less than required bytes "+ readBytes);
     		return -1;
     	}
     	
@@ -756,11 +759,13 @@ public class UserProcess {
         	//Take each memory location, see its validity
     		int memLoc = Lib.bytesToInt(memArray, i*4);
     		if (!isValidAddress(memLoc)){
+    			debug("A memor location is invalid");
     			return -1;
     		}
     		//get string from location
     		String s = readVirtualMemoryString(memLoc, 256);
     		if (s == null){
+    			debug("Read null string for an arg");
     			return -1;
     		}
     		//put it in arglist array
@@ -772,6 +777,7 @@ public class UserProcess {
     	child.parent = this;
     	childState childProcess = new childState(child);
     	if (children == null){
+    		debug("No children list wtf so returning -1");
     		return -1;
     	}
     	children.put(child.PID, childProcess);
@@ -780,7 +786,14 @@ public class UserProcess {
     	return child.PID;
     }
 
-    private int handleJoin(int pid, int statusLocation){
+    private void debug(String string) {
+		if (true){
+			System.out.println(string);
+		}
+		
+	}
+
+	private int handleJoin(int pid, int statusLocation){
     	if (!isValidAddress(statusLocation)){
     		return -1;
     	}
@@ -814,17 +827,18 @@ public class UserProcess {
     	if (this.children == null){
     		return -1;
     	}
-    	//inform parent that I am exiting
-    	childState myState = this.parent.children.get(this.PID);
-    	if (myState == null){
-    		System.out.println("SOMETHING WENT BAD in join");
-    		return -1;
-    	}
     	
-      	//Set my exit status and "notify" parent
-    	this.parent.children.remove(this.PID);
-    	myState.exitWithStatus(status);
-    	this.parent.children.put(this.PID, myState);
+    	//inform parent i'm exiting
+    	if (this.parent!= null && this.parent.children != null){
+    		childState myState = this.parent.children.get(this.PID);
+        	if (myState == null){
+        		System.out.println("SOMETHING WENT BAD in join");
+        		return -1;
+        	}
+        	this.parent.children.remove(this.PID);
+        	myState.exitWithStatus(status);
+        	this.parent.children.put(this.PID, myState);
+    	}
     	
     	for (childState child: children.values()){
     		if (child.isRunning()){
