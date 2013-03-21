@@ -8,7 +8,7 @@
 char buf1[size], buf2[size], buf3[bigsize], buf4[bigsize];
 
 int main(void){
-	//Tests for any modifications to the FD Array (Creat, Unlink & Close)
+	//Tests for any modifications to the FD Array (Create, Unlink & Close)
 	int i, daFile, writeDaFile, readDaFile, openDaFile, closeDaFile, unlinkDaFile;
 	char fileName[1000];
 
@@ -16,7 +16,7 @@ int main(void){
 	for(i =0; i<17; i++){
 		daFile = creat("test1.txt");
 		if(daFile == -1){
-			printf("ERROR: Creat failed on FD %d", i);
+			printf("ERROR: Create failed on FD %d", i);
 			return 1;
 		}
 		closeDaFile = close(daFile);
@@ -27,11 +27,10 @@ int main(void){
 		unlink("test.txt");
 	}
 
-
 	//Tests for Read & Write
 	daFile = creat("test2.txt");
 	if(daFile == -1){
-		printf("ERROR: Creat failed on test2.txt");
+		printf("ERROR: Create failed on test2.txt");
 		return 1;
 	}
 	for(i=0; i<64; i++){

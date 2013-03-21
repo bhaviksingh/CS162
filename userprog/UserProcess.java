@@ -234,7 +234,7 @@ public class UserProcess {
      *			virtual memory.
      * @return	the number of bytes successfully transferred.
      */
-    public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+    public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {	
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 		
 		// if the given virtual address is out of range, just return 0 because it is invalid
@@ -491,7 +491,7 @@ public class UserProcess {
     
     
     /**
-     * Make sure VA is valid
+     * Checks to make sure the VA is valid
      * 
      * @param Virtual Address vaddr
      * @return True if valid VA, False if invalid VA
@@ -507,7 +507,7 @@ public class UserProcess {
      * @return Index of valid file descriptor or -1 if none exist.
      */
     protected int getDescriptor() {
-    	for (int i = 0; i < 16; i++) {
+    	for (int i = 2; i < 16; i++) {
     		if (fileTable[i] == null) {
     			return i;
     		}
@@ -522,7 +522,7 @@ public class UserProcess {
      * @return True if the descriptor exists
      */
     private boolean isValidDescriptor(int descIndex) {
-    	if (descIndex < 0 || descIndex >= 16) { //Array Range check
+    	if ((descIndex < 0) || (descIndex >= 16)) { //Array Range check
     		return false;
     	} else {
     		return fileTable[descIndex] != null; //Valid Entry check
@@ -534,7 +534,7 @@ public class UserProcess {
      */
     private int handleHalt() {
     	if (PID != 0) { //Only root process can call halt
-    		return 0;
+    		return -1;
     	} else {
     		Machine.halt();
     		Lib.assertNotReached("Machine.halt() did not halt machine!");
@@ -549,7 +549,7 @@ public class UserProcess {
      * @return 
      * 			Location of the file descriptor in fileTable
      */
-    private int handleCreate(int filePtr) {
+    private int handleCreat(int filePtr) {
     	return handleHelper(filePtr, true);
     }
     
@@ -609,7 +609,11 @@ public class UserProcess {
      * 			Total bytes read, -1 on error
      */
     private int handleRead(int fileNo, int bufferPtr, int numOfBytes) {
-    	if ((!isValidDescriptor(fileNo)) || (!isValidAddress(bufferPtr))) {
+    	if (!isValidDescriptor(fileNo)) {
+    		return -1;
+    	}
+    	
+    	if (!isValidAddress(bufferPtr)) {
     		return -1;
     	}
     	
@@ -627,7 +631,7 @@ public class UserProcess {
     		byte[] buffer = new byte[readSize];
     		int nextRead = fileTable[fileNo].read(buffer, 0, readSize);
     		
-    		if (nextRead == -1) {
+    		if (nextRead < 0) {
     			return -1;
     		}
     		
@@ -659,10 +663,13 @@ public class UserProcess {
      * 			Total bytes written, -1 on error
      */
     private int handleWrite(int fileNo, int bufferPtr, int numOfBytes) {
-    	if ((!isValidDescriptor(fileNo)) || (!isValidAddress(bufferPtr))) {
+    	if (!isValidDescriptor(fileNo)) {
     		return -1;
     	}
     	
+    	if (!isValidAddress(bufferPtr)) {
+    		return -1;
+    	}
     	int bytesLeft = numOfBytes;
     	int bytesWritten = 0;
     	int readSize = 0;
@@ -739,7 +746,7 @@ public class UserProcess {
 		syscallExit = 1,
 		syscallExec = 2,
 		syscallJoin = 3,
-		syscallCreate = 4,
+		syscallCreat = 4,
 		syscallOpen = 5,
 		syscallRead = 6,
 		syscallWrite = 7,
@@ -776,11 +783,12 @@ public class UserProcess {
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
 		switch (syscall) {
+		
 		case syscallHalt:
 			return handleHalt();
 
-		case syscallCreate:
-			return handleCreate(a0);
+		case syscallCreat:
+			return handleCreat(a0);
 
 		case syscallOpen:
 			return handleOpen(a0);
@@ -799,7 +807,7 @@ public class UserProcess {
 	
 		default:
 		    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
-		    Lib.assertNotReached("Unknown system call!");
+		    Lib.assertNotReached("Unknown system call:" + syscall);
 		}
 		return 0;
     }
