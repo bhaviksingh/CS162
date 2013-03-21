@@ -852,9 +852,12 @@ public class UserProcess {
     	joinCondition.wakeAll();
     	joinLock.release();
     	
-    	if (this.PID == 0){
+    	globalLock.acquire();
+    	totalPID --;
+    	if (totalPID == 0){
     		Kernel.kernel.terminate();
     	}
+    	globalLock.release();
     	
     	KThread.finish();
     	return 0;

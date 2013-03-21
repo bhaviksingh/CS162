@@ -10,11 +10,10 @@ int main(void) {
     int childPID[n];
     int *exitStatus;
     char *cpargv[10] = {"TESTING"};
-    printf("STARTING lotsOfMemory test \n");
-    
     for(int i = 0; i<n; i++){
 	childPID[i] = exec("test.coff", 1, cpargv);
 	join(childPID[i], exitStatus);
 	printf("child pid: %d \n", childPID[i]);
     }
+    printf("FINISHED!");
 }
