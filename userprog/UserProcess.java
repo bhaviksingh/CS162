@@ -774,7 +774,7 @@ public class UserProcess {
     		//get string from location
     		String s = readVirtualMemoryString(memLoc, 256);
     		if (s == null){
-    			debug("Read null string for an arg")
+    			debug("Read null string for an arg");
     			return -1;
     		}
     		//put it in arglist array
