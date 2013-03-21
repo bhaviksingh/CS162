@@ -830,19 +830,20 @@ public class UserProcess {
     		return -1;
     	}
     	
-    	//Set my exit status and "notify" parent
-    	this.parent.children.remove(this.PID);
-    	myState.exitWithStatus(status);
-    	this.parent.children.put(this.PID, myState);
-    
     	for (childState child: children.values()){
     		if (child.isRunning()){
     			child.process.parent = null; //disown
     		}
     	}
     	
+    	//Set my exit status and "notify" parent
+    	this.parent.children.remove(this.PID);
+    	myState.exitWithStatus(status);
+    	this.parent.children.put(this.PID, myState);
+    	
     	this.children = null;
     	this.unloadSections();
+    	joinCondition.wakeAll();
     	joinLock.release();
     	
     	if (this.PID == 0){
