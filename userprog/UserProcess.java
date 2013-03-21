@@ -789,6 +789,7 @@ public class UserProcess {
 	private int handleJoin(int pid, int statusLocation){
 		debug("JOIINING " + pid + " i am " + this.PID);
     	if (!isValidAddress(statusLocation)){
+    		handleExit(null); //unhandled exeption!
     		return -1;
     	}
     	if (children == null || !children.containsKey(pid)){
@@ -800,7 +801,6 @@ public class UserProcess {
     	}
     	if (child.isRunning()){
     		debug("child is running so acquire lock");
-    		//TODO: childs join lcok?
     		child.process.joinLock.acquire();
     		while (child.isRunning()){
     			child.process.joinCondition.sleep();
@@ -824,7 +824,7 @@ public class UserProcess {
     	joinLock.acquire();
     	
     	if (this.children == null){
-    		debug("this children is null");
+    		debug("this children is null so already exited");
     		return -1;
     	}
     	
