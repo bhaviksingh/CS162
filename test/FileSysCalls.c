@@ -7,42 +7,34 @@
 
 int main(void){
 	int i = 0;
-	int file;
-	char fileName[1000];
+	int file, closeFile, unlinkFile, writeFile, readFile;
+	char writeBuffer[BUFFSIZE], writeBuffer[BUFFSIZE], XLWriteBuffer[XLBUFFSIZE], XLReadBuffer[XLBUFFSIZE];
 
 	/* [TEST SET ONE]
 	 * tests for the following syscalls: creat, close, unlink
 	 */
-	int closeFile, unlinkFile;
 	for(i =0; i<15; i++){
-		// testing creat syscall; will attempt to create the test file 20 times
+		// testing creat syscall; will attempt to create the test file
 		file = creat("testFile.txt");
 		if(file == -1){
 			printf("[ERROR] creat failed for testFile.txt on %d-th attempt", i);
 			return 1;
 		}
 
-		// testing close syscall; will attempt to close the test file 20 times
+		// testing close syscall; will attempt to close the test file
 		closeFile = close(file);
 		if(closeFile == -1){
 			printf("[ERROR] close failed for testFile.txt on %d-th attempt", i);
 			return 1;
 		}
 
-		// testing unlink syscall; will attempt to delete the test file 20 times
-		unlinkFile = unlink(file);
-		if(unlinkFile == -1) {
-			printf("[ERROR] unlink failed for testFile.txt on %d-th attempt", i);
-			return 1;
-		}
+		// testing unlink syscall; will attempt to delete the test file
+		unlink(file);
 	}
 
 	/* [TEST SET TWO]
 	 * tests for the following syscalls: read, write
 	 */
-	char writeBuffer[BUFFSIZE];
-	char readBuffer[BUFFSIZE];
-	int writeFile, readFile;
 	file = creat("testFile2.txt");
 	if(file == -1){
 		printf("[ERROR] Create failed on test2.txt");
@@ -98,7 +90,7 @@ int main(void){
 	// we should NOT be able to open the file anymore and read it
 	closeFile = close(file);
 	openFile = open("testFile2.txt");
-	if(closeFile == -1 || openDaFile != -1){
+	if(closeFile == -1 || openFile != -1){
 		printf("[ERROR] close failed or was able to open a file after it was closed");
 		return 1;
 	}
@@ -106,8 +98,6 @@ int main(void){
 	/* [TEST SET FOUR]
 	 * testing large reads and writes
 	 */
-	char XLWriteBuffer[XLBUFFSIZE];
-	char XLReadBuffer[XLBUFFSIZE];
 	// testing large write
 	for(i=0; i<XLBUFFSIZE; i++) {
 		XLWriteBuffer[i] = '.';
