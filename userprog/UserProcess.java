@@ -157,7 +157,7 @@ public class UserProcess {
 		int readOffset = Machine.processor().offsetFromAddress(vaddr);
 		int readLength = 0; // how much we read
 		int startingPhysAddr = 0; // starting physical addr in memory of what we are reading
-		int endyingPhysAddr = 0; // ending physical addr in memory of what we are reading	
+		int endingPhysAddr = 0; // ending physical addr in memory of what we are reading	
 		
 		try {
 			TranslationEntry currentPage;
@@ -180,13 +180,14 @@ public class UserProcess {
 				
 				// check the range of the starting physical address to make sure it's valid
 				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
-					endyingPhysAddr = (currentPage.ppn + 1) * pageSize;					
+					endingPhysAddr = (currentPage.ppn + 1) * pageSize;					
 					readLength = Math.min(readLength, memory.length - startingPhysAddr); // we want to read as much as possible		
 					
 					// copy memory --> data
 					System.arraycopy(memory, startingPhysAddr, data, offset + numBytesTransferred, readLength);
 					
 					numBytesTransferred += readLength;
+					length -= readLength;
 					
 					// mark as used
 					currentPage.used = true;													
@@ -264,18 +265,19 @@ public class UserProcess {
 				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
 					endingPhysAddr = (currentPage.ppn + 1) * pageSize;			
 					writeLength = Math.min(writeLength, memory.length - startingPhysAddr); // we want to write as much as possible
+					writeLength = Math.min(writeLength, endingPhysAddr - startingPhysAddr); // can't write outside our given range			
 					
-					// copy data --> memory 
+					// copy data --> memory 					
 					System.arraycopy(data, offset + numBytesTransferred,  memory,  startingPhysAddr,  writeLength);
 					
 					numBytesTransferred += writeLength;
+					length -= writeLength;
 					
 					// mark as used and dirty
 					currentPage.used = true;
 					currentPage.dirty = true;
 				}							
-			}
-			
+			}			
 			return numBytesTransferred;
 		}
 		catch(Exception e) {
@@ -614,13 +616,13 @@ public class UserProcess {
     		byte[] buffer = new byte[readSize];
     		int nextRead = fileTable[fileNo].read(buffer, 0, readSize);
     		
-    		if (nextRead < 0) {
+    		if (nextRead < 0) {    			
     			return -1;
     		}
     		
     		int nextWrite = writeVirtualMemory(bufferPtr, buffer, 0, nextRead);
     		
-    		if (nextRead != nextWrite) {
+    		if (nextRead != nextWrite) {    			
     			return -1;
     		}
     		
@@ -667,7 +669,7 @@ public class UserProcess {
     		byte[] buffer = new byte[readSize];
     		int nextRead = readVirtualMemory(bufferPtr, buffer, 0, readSize);
     		
-    		if (nextRead != readSize) {
+    		if (nextRead != readSize) {    			
     			return -1;
     		}
     		
