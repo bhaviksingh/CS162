@@ -1,4 +1,4 @@
-#include "syscall.h"
+	#include "syscall.h"
 #include "stdio.h"
 #include "stdlib.h"
 
@@ -52,6 +52,7 @@ int main(void){
 	}
 	else {
 		printf("[INFO] write succeeded for testFile2.txt; wrote %d bytes\n", writeFile);
+		printf("[INFO] writeBuffer: %s", writeBuffer);
 	}
 	close(file);
 
@@ -64,12 +65,13 @@ int main(void){
 	}
 	else {
 		printf("[INFO] read succeeded for testFile2.txt; read %d bytes\n", readFile);
+		printf("[INFO] readBuffer: %s", readBuffer);
 	}
 
 	// double check that what we wrote = what we read
 	for(i=0; i<64; i++){
 		if (readBuffer[i] != writeBuffer[i]){
-			printf("[ERROR] content written to testFile2.txt does not match content read from testFile2.txt; failed at %d-th byte", i);
+			printf("[ERROR] content written to testFile2.txt does not match content read from testFile2.txt; failed at %d-th byte\n", i);
 			printf("[ERROR] read: %c vs wrote: %c", readBuffer[i], writeBuffer[i]);
 			return 1;
 		}
