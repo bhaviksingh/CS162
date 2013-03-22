@@ -161,9 +161,7 @@ public class UserProcess {
 		
 		try {
 			TranslationEntry currentPage;
-			for(int i = startVPN; i <= endVPN; i++) {
-				System.out.println("ITERATION = "+i+"; START VPN = "+startVPN+"; END VPN = "+endVPN);
-				
+			for(int i = startVPN; i <= endVPN; i++) {							
 				// get the current page from pageTable
 				currentPage = pageTable[i];
 								
@@ -184,14 +182,13 @@ public class UserProcess {
 				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
 					endingPhysAddr = (currentPage.ppn + 1) * pageSize;					
 					readLength = Math.min(readLength, memory.length - startingPhysAddr); // we want to read as much as possible		
-					
-					System.out.println("LENGTH = "+length+"; READLENGTH = "+readLength);
-					
+										
 					// copy memory --> data
 					System.arraycopy(memory, startingPhysAddr, data, offset + numBytesTransferred, readLength);
 					
 					numBytesTransferred += readLength;
 					length -= readLength;
+					readOffset = 0;
 					
 					// mark as used
 					currentPage.used = true;													
@@ -246,15 +243,13 @@ public class UserProcess {
 		int writeOffset = Machine.processor().offsetFromAddress(vaddr); 
 		int writeLength = 0; // how much we wrote
 		int startingPhysAddr = 0; // starting physical addr in memory of where we are writing to
-		int endingPhysAddr = 0; // ending physical addr in memory of where we are writing to
-		
-		System.out.println("WRITE OFFSET = " + writeOffset);
+		int endingPhysAddr = 0; // ending physical addr in memory of where we are writing to			
 		
 		try {
 			TranslationEntry currentPage;
-			for(int i = startVPN; i <= endVPN; i++) {
-				System.out.println("ITERATION = " + i +"; START VPN = " + startVPN + "; END VPN = " + endVPN);
+			for(int i = startVPN; i <= endVPN; i++) {				
 				currentPage = pageTable[i];
+				//writeOffset = Machine.processor().offsetFromAddress(currentPage.vpn);
 				
 				// if this page isn't valid or is read-only, just break the loop
 				if(!currentPage.valid || currentPage.readOnly) {
@@ -268,20 +263,17 @@ public class UserProcess {
 				// we can write up to either the length given or the entire
 				// page minus its offset, depending on which is smaller
 				writeLength = Math.min(length, pageSize - writeOffset);
-				System.out.println("INITIAL WRITE LENGTH = " + writeLength);
 				
 				if(startingPhysAddr > 0 && startingPhysAddr <= memory.length) {
 					endingPhysAddr = (currentPage.ppn + 1) * pageSize;			
-					writeLength = Math.min(writeLength, memory.length - startingPhysAddr); // we want to write as much as possible
-					//writeLength = Math.min(writeLength, endingPhysAddr - startingPhysAddr); // can't write outside our given range			
-					
-					System.out.println("LENGTH = " + length + "; WRITE LENGTH = " + writeLength);
+					writeLength = Math.min(writeLength, memory.length - startingPhysAddr); // we want to write as much as possible							
 					
 					// copy data --> memory 					
 					System.arraycopy(data, offset + numBytesTransferred,  memory,  startingPhysAddr,  writeLength);
 					
 					numBytesTransferred += writeLength;
-					length -= writeLength;
+					length -= writeLength;	
+					writeOffset = 0;
 					
 					// mark as used and dirty
 					currentPage.used = true;
@@ -632,10 +624,8 @@ public class UserProcess {
     		
     		int nextWrite = writeVirtualMemory(bufferPtr, buffer, 0, nextRead);
     		
-    		if (nextRead != nextWrite) {    			
-    			//return nextWrite; //nextRead = 1024 (1 page), nextWrite = 256
-    			return -100;
-    			//return -1;
+    		if (nextRead != nextWrite) {    			    			
+    			return -1;
     		}
     		
     		bytesLeft -= readSize;

@@ -2,7 +2,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 
-#define BUFFSIZE 64
+#define BUFFSIZE 1024
 #define XLBUFFSIZE 2560
 
 char writeBuffer[BUFFSIZE], readBuffer[BUFFSIZE], XLWriteBuffer[XLBUFFSIZE], XLReadBuffer[XLBUFFSIZE];
@@ -55,7 +55,6 @@ int main(void){
 	}
 	else {
 		printf("[INFO] write succeeded for testFile2.txt; wrote %d bytes\n", writeFile);
-		printf("[INFO] writeBuffer: %s\n", writeBuffer);
 	}
 	close(file);
 
@@ -68,14 +67,12 @@ int main(void){
 	}
 	else {
 		printf("[INFO] read succeeded for testFile2.txt; read %d bytes\n", readFile);
-		printf("[INFO] readBuffer: %s\n", readBuffer);
 	}
 
 	// double check that what we wrote = what we read
 	for(i=0; i<BUFFSIZE; i++){
 		if (readBuffer[i] != writeBuffer[i]){
 			printf("[ERROR] content written to testFile2.txt does not match content read from testFile2.txt; failed at %d-th byte\n", i);
-			printf("[ERROR] read: %s vs wrote: %s\n", readBuffer[i], writeBuffer[i]);
 			return 1;
 		}
 	}
@@ -119,7 +116,6 @@ int main(void){
 	writeFile = write(XLFile, XLWriteBuffer, XLBUFFSIZE);
 	if(writeFile == -1){
 		printf("[ERROR] write failed for XLTestFile.txt\n");
-		printf("current state of buffer: %s\n", XLWriteBuffer);
 		return 1;
 	}
 	else {
@@ -139,13 +135,8 @@ int main(void){
 		printf("[ERROR] read failed for XLTestFile.txt\n");
 		return 1;
 	}
-	else if(readFile == -100) {
-		printf("!!! YOLOOOOO %d !!!\n", readFile);
-		return 1;
-	}
 	else {
 		printf("[INFO] read succeeded for XLTestFile.txt; read %d bytes\n", readFile);
-		printf("current state of buffer: %s\n", XLReadBuffer);
 	}
 
 	// comparing contents
