@@ -52,7 +52,7 @@ int main(void){
 	}
 	else {
 		printf("[INFO] write succeeded for testFile2.txt; wrote %d bytes\n", writeFile);
-		printf("[INFO] writeBuffer: %s", writeBuffer);
+		printf("[INFO] writeBuffer: %s\n", writeBuffer);
 	}
 	close(file);
 
@@ -65,7 +65,7 @@ int main(void){
 	}
 	else {
 		printf("[INFO] read succeeded for testFile2.txt; read %d bytes\n", readFile);
-		printf("[INFO] readBuffer: %s", readBuffer);
+		printf("[INFO] readBuffer: %s\n", readBuffer);
 	}
 
 	// double check that what we wrote = what we read
