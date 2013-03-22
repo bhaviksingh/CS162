@@ -72,7 +72,7 @@ int main(void){
 	for(i=0; i<64; i++){
 		if (readBuffer[i] != writeBuffer[i]){
 			printf("[ERROR] content written to testFile2.txt does not match content read from testFile2.txt; failed at %d-th byte\n", i);
-			printf("[ERROR] read: %c vs wrote: %c", readBuffer[i], writeBuffer[i]);
+			printf("[ERROR] read: %s vs wrote: %s", readBuffer[i], writeBuffer[i]);
 			return 1;
 		}
 	}
